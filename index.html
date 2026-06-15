@@ -149,6 +149,18 @@
   .crow .cbar{flex:1;background:#0e151c;border-radius:6px;height:24px;overflow:hidden}
   .crow .cfill{height:100%;background:linear-gradient(90deg,var(--brand),#5f9e1a);border-radius:6px;min-width:2px;transition:width .3s}
   .crow .cv{width:96px;flex:none;text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  /* deletable tabs + roles browser */
+  .tabchip{display:inline-flex;align-items:center;gap:8px}
+  .tabchip .x{opacity:.4;font-size:15px;line-height:1;padding:0 1px;border-radius:4px}
+  .tabchip .x:hover{opacity:1;color:var(--machine)}
+  .tabchip.active .x{opacity:.55}.tabchip.active .x:hover{color:#7a1418}
+  .rolebar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .rolebar select{background:#0c1116;border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:9px;font:inherit;font-size:13px;min-width:210px;cursor:pointer}
+  .rolebar select:focus{outline:none;border-color:var(--brand)}
+  .rolemeta{font-size:12.5px;color:var(--muted);font-family:var(--mono)}.rolemeta b{color:var(--text)}
+  .rolechips{padding:16px;display:flex;flex-wrap:wrap;gap:8px;max-height:62vh;overflow:auto}
+  .nchip{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text)}
+  .rolenote{color:var(--muted2);font-size:12.5px}
 
   footer{margin-top:26px;padding:16px 4px;color:var(--muted2);font-size:11.5px;line-height:1.6}
 </style>
@@ -379,12 +391,12 @@ function setRows(list,vf){return list.length?list.map((p,i)=>`<div class="set"><
 function renderTabChips(){
   $("tabs").innerHTML=S.stats.tabList.map(t=>{
     const dead=S.stats.fail[t]?"dead":"";const active=S.stats.active===t?"active":"";
-    return `<button class="tabchip ${active} ${dead}" data-tab="${esc(t)}">${esc(t)}</button>`;
+    return `<button class="tabchip ${active} ${dead}" data-tab="${esc(t)}">${esc(t)}<span class="x" data-del="${esc(t)}" title="Remove tab">×</span></button>`;
   }).join("")+`<span class="addtab"><input type="text" id="newtab" placeholder="add tab name" autocomplete="off"><button class="ghost" id="addtab">+</button></span>`;
 }
 async function selectTab(t){
   if(S.isDemo){$("statBody").innerHTML='<div class="loadtab">Stats need a live sheet. Use “Change sheet” to connect one.</div>';return;}
-  S.stats.active=t;S.stats.q="";$("statSearch").value="";renderTabChips();
+  S.stats.active=t;S.stats.q="";S.stats.roleSel=null;$("statSearch").value="";renderTabChips();
   if(S.stats.cache[t]){renderStatBody();return;}
   $("statBody").innerHTML='<div class="loadtab">Loading '+esc(t)+'…</div>';$("rowCount").textContent="";
   try{ S.stats.cache[t]=await fetchTab(S.sheetId,t); delete S.stats.fail[t]; renderStatBody(); }
@@ -404,18 +416,55 @@ function renderStatBody(){
   const raw=S.stats.cache[S.stats.active];if(!raw)return;
   const {H,D,numeric}=cleanRows(raw);
   if(S.stats.mode==="chart"){renderChart(H,D,numeric);return;}
+  const isRoles=/ROLE/.test(norm(S.stats.active).toUpperCase()) && H.map(h=>norm(h).toUpperCase()).includes("PLAYERS");
+  if(isRoles){renderRoles(H,D,numeric);return;}
+  $("statBody").innerHTML=tableHTML(H,D,numeric);
+}
+function tableHTML(H,D,numeric){
   const q=S.stats.q.toLowerCase();
   let rows=q?D.filter(r=>r.some(c=>String(c).toLowerCase().includes(q))):D.slice();
   const so=S.stats.sort[S.stats.active];
-  if(so){const c=so.col,dir=so.dir;rows.sort((a,b)=>{
-    if(numeric[c]){return (num(a[c])-num(b[c]))*dir;}
-    return String(a[c]).localeCompare(String(b[c]))*dir;});}
+  if(so){const c=so.col,dir=so.dir;rows.sort((a,b)=>numeric[c]?(num(a[c])-num(b[c]))*dir:String(a[c]).localeCompare(String(b[c]))*dir);}
   const total=rows.length,cap=1000,capped=total>cap;if(capped)rows=rows.slice(0,cap);
   $("rowCount").textContent=`${total} row${total!==1?"s":""}${capped?" · showing 1,000":""}`;
   const head="<tr>"+H.map((h,c)=>{const a=so&&so.col===c?(so.dir>0?'<span class="ar">▲</span>':'<span class="ar">▼</span>'):"";return `<th data-col="${c}">${esc(h)||"—"}${a}</th>`;}).join("")+"</tr>";
   const body=rows.map(r=>"<tr>"+H.map((_,c)=>{const v=r[c]==null?"":r[c];const isN=numeric[c]&&isNumStr(v);
     const cls=c===0?"name":(isN?"numv":"");return `<td class="${cls}">${isN?fmtNum(v):esc(v)}</td>`;}).join("")+"</tr>").join("");
-  $("statBody").innerHTML=`<div class="tablewrap"><table><thead>${head}</thead><tbody>${body||'<tr><td class="loadtab">No matching rows.</td></tr>'}</tbody></table></div>`;
+  return `<div class="tablewrap"><table><thead>${head}</thead><tbody>${body||'<tr><td class="loadtab">No matching rows.</td></tr>'}</tbody></table></div>`;
+}
+function renderRoles(H,D,numeric){
+  const up=H.map(h=>norm(h).toUpperCase());
+  const pCol=up.indexOf("PLAYERS"),tCol=up.indexOf("THRESHOLD"),cCol=up.indexOf("COUNT");
+  const roleRows=D.filter(r=>norm(r[0])!=="");
+  const roles=roleRows.map(r=>norm(r[0]));
+  let sel=S.stats.roleSel;
+  if(sel==null||(sel!=="__all__"&&!roles.includes(sel)))sel=roles[0]||"__all__";
+  S.stats.roleSel=sel;
+  const opts=`<option value="__all__">All roles (table)</option>`+roles.map(r=>`<option value="${esc(r)}" ${r===sel?"selected":""}>${esc(r)}</option>`).join("");
+  if(sel==="__all__"){
+    $("statBody").innerHTML=`<div class="rolebar"><select id="roleSel">${opts}</select><span class="rolemeta">all <b>${roles.length}</b> roles</span></div>`+tableHTML(H,D,numeric);
+    return;
+  }
+  const row=roleRows.find(r=>norm(r[0])===sel)||[];
+  const players=String(pCol>-1?row[pCol]:"").split(",").map(s=>norm(s)).filter(Boolean);
+  const q=S.stats.q.toLowerCase();
+  const filtered=q?players.filter(p=>p.toLowerCase().includes(q)):players;
+  const thr=tCol>-1?norm(row[tCol]):"";
+  const cnt=(cCol>-1&&norm(row[cCol])!=="")?norm(row[cCol]):String(players.length);
+  $("rowCount").textContent=`${filtered.length} player${filtered.length!==1?"s":""}`;
+  const chips=filtered.length?filtered.map(p=>`<span class="nchip">${esc(p)}</span>`).join(""):`<span class="rolenote">No players match “${esc(S.stats.q)}”.</span>`;
+  $("statBody").innerHTML=`<div class="rolebar"><select id="roleSel">${opts}</select><span class="rolemeta">${thr?esc(thr)+" · ":""}<b>${esc(cnt)}</b> players</span></div><div class="rolechips">${chips}</div>`;
+}
+function persistTabs(){try{localStorage.setItem("viper.tabs",JSON.stringify(S.stats.tabList));}catch(e){}}
+function deleteTab(t){
+  const i=S.stats.tabList.indexOf(t);if(i<0)return;
+  S.stats.tabList.splice(i,1);
+  delete S.stats.cache[t];delete S.stats.fail[t];delete S.stats.sort[t];delete S.stats.chartCol[t];
+  persistTabs();
+  if(S.stats.active===t){S.stats.active=null;
+    if(S.stats.tabList.length)selectTab(S.stats.tabList[0]);
+    else{renderTabChips();$("statBody").innerHTML='<div class="loadtab">No tabs left — add one with the box on the right.</div>';$("rowCount").textContent="";}}
+  else renderTabChips();
 }
 function renderChart(H,D,numeric){
   const numCols=H.map((h,i)=>({h,i})).filter(o=>numeric[o.i]);
@@ -475,9 +524,11 @@ $("list").addEventListener("click",e=>{
 
 /* stats events */
 $("tabs").addEventListener("click",e=>{
+  const del=e.target.closest("[data-del]");
+  if(del){deleteTab(del.dataset.del);return;}
   const chip=e.target.closest("[data-tab]"),add=e.target.closest("#addtab");
   if(chip&&!chip.classList.contains("dead"))selectTab(chip.dataset.tab);
-  else if(add){const v=norm($("newtab").value);if(v&&!S.stats.tabList.includes(v)){S.stats.tabList.push(v);selectTab(v);}}
+  else if(add){const v=norm($("newtab").value);if(v&&!S.stats.tabList.includes(v)){S.stats.tabList.push(v);persistTabs();selectTab(v);}}
 });
 $("tabs").addEventListener("keydown",e=>{if(e.target.id==="newtab"&&e.key==="Enter")$("addtab").click();});
 $("statSearch").addEventListener("input",e=>{S.stats.q=e.target.value;if(S.stats.mode==="table")renderStatBody();});
@@ -489,9 +540,11 @@ $("statBody").addEventListener("click",e=>{
     S.stats.sort[S.stats.active]=cur&&cur.col===c?{col:c,dir:-cur.dir}:{col:c,dir:1};renderStatBody();}
 });
 $("statBody").addEventListener("change",e=>{
+  if(e.target.id==="roleSel"){S.stats.roleSel=e.target.value;renderStatBody();}
   if(e.target.id==="chartCol"){S.stats.chartCol[S.stats.active]=+e.target.value;renderStatBody();}
   if(e.target.id==="chartTop"){S.stats.topN=Math.max(3,Math.min(50,+e.target.value||15));renderStatBody();}
 });
+try{const v=JSON.parse(localStorage.getItem("viper.tabs"));if(Array.isArray(v)&&v.length)S.stats.tabList=v;}catch(e){}
 </script>
 </body>
 </html>
