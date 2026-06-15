@@ -3,32 +3,33 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>VIPER — Rally Planner</title>
+<title>VIPER — War Room</title>
 <style>
   :root{
     --bg:#0d1014; --panel:#151b22; --panel2:#1b232c; --line:#27303b;
     --text:#e8eef4; --muted:#8a97a6; --muted2:#5f6b78;
-    --brand:#a3e635;                 /* toxic lime — used only for identity */
-    --machine:#ff5d63;               /* machine gun */
-    --waterfall:#27d6a3;             /* waterfall */
-    --bomb:#f5a524;                  /* bomb */
+    --brand:#a3e635;                 /* venom green — identity */
+    --machine:#ff5d63; --waterfall:#27d6a3; --bomb:#f5a524;
     --radius:14px;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --disp:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--disp);-webkit-font-smoothing:antialiased}
-  body{min-height:100vh}
   a{color:var(--brand)}
-  .wrap{max-width:1280px;margin:0 auto;padding:20px}
+  .wrap{max-width:1340px;margin:0 auto;padding:20px}
 
-  /* ── header ───────────────────────────────────────── */
-  header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:8px 4px 20px}
+  /* header + nav */
+  header{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:8px 4px 18px}
   .logo{display:flex;align-items:center;gap:12px}
   .mark{width:34px;height:34px;border:2px solid var(--brand);border-radius:8px;display:grid;place-items:center;
     color:var(--brand);font-weight:900;font-size:18px;letter-spacing:-1px;box-shadow:0 0 24px -8px var(--brand)}
-  .logo h1{font-size:17px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;margin:0}
-  .logo p{margin:0;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2)}
+  .logo h1{font-size:18px;letter-spacing:.24em;text-transform:uppercase;font-weight:800;margin:0}
+  .nav{display:none;gap:4px;background:#0e151c;border:1px solid var(--line);border-radius:11px;padding:4px}
+  .nav button{background:transparent;border:none;color:var(--muted);font:inherit;font-size:12.5px;letter-spacing:.06em;
+    padding:8px 16px;border-radius:8px;cursor:pointer;transition:.15s}
+  .nav button:hover{color:var(--text)}
+  .nav button.active{background:var(--brand);color:#0d1014;font-weight:700}
   .hspace{flex:1}
   .src{display:none;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--waterfall);box-shadow:0 0 10px var(--waterfall)}
@@ -36,41 +37,36 @@
     font:inherit;font-size:12px;letter-spacing:.04em;cursor:pointer;transition:.15s}
   .ghost:hover{border-color:var(--muted2);background:#10161d}
 
-  /* ── setup card ───────────────────────────────────── */
-  .setup{max-width:620px;margin:6vh auto 0;background:var(--panel);border:1px solid var(--line);
-    border-radius:var(--radius);padding:30px}
-  .setup h2{margin:0 0 6px;font-size:20px;letter-spacing:.01em}
+  /* setup */
+  .setup{max-width:620px;margin:6vh auto 0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:30px}
+  .setup h2{margin:0 0 6px;font-size:20px}
   .setup .lead{margin:0 0 22px;color:var(--muted);font-size:14px;line-height:1.55}
   .field{display:flex;gap:10px;flex-wrap:wrap}
   input[type=text]{flex:1;min-width:240px;background:#0c1116;border:1px solid var(--line);color:var(--text);
     padding:12px 14px;border-radius:10px;font:inherit;font-size:14px}
-  input[type=text]:focus{outline:none;border-color:var(--brand)}
+  input[type=text]:focus,input[type=number]:focus{outline:none;border-color:var(--brand)}
   .btn{background:var(--brand);color:#0d1014;border:none;padding:12px 20px;border-radius:10px;font:inherit;
     font-weight:700;letter-spacing:.03em;cursor:pointer;transition:.15s}
-  .btn:hover{filter:brightness(1.08)}
-  .btn:disabled{opacity:.5;cursor:default}
+  .btn:hover{filter:brightness(1.08)} .btn:disabled{opacity:.5;cursor:default}
   .hint{margin:16px 0 0;font-size:12.5px;color:var(--muted2);line-height:1.6}
   .hint b{color:var(--muted)}
   .demo{background:none;border:none;color:var(--brand);font:inherit;font-size:13px;cursor:pointer;padding:0;text-decoration:underline}
   .status{margin-top:14px;font-size:13px;min-height:18px}
   .status.err{color:var(--machine)} .status.ok{color:var(--waterfall)} .status.busy{color:var(--muted)}
 
-  /* ── main grid ────────────────────────────────────── */
-  main{display:none;grid-template-columns:380px 1fr;gap:18px;align-items:start}
-  @media(max-width:920px){main{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
   .card-h{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
   .card-h h3{margin:0;font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:800;color:var(--muted)}
 
-  /* roster */
+  /* ── RALLY VIEW ── */
+  #rallyView{display:none;grid-template-columns:380px 1fr;gap:18px;align-items:start}
+  @media(max-width:920px){#rallyView{grid-template-columns:1fr}}
   .roster .tools{padding:14px 16px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--line)}
   .roster input[type=text]{width:100%}
   .chips{display:flex;gap:8px;flex-wrap:wrap}
-  .chip{font-size:11px;letter-spacing:.04em;background:#0e151c;border:1px solid var(--line);border-radius:999px;
-    padding:6px 11px;color:var(--muted)}
+  .chip{font-size:11px;letter-spacing:.04em;background:#0e151c;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--muted)}
   .chip b{color:var(--text);font-family:var(--mono)}
-  .bulk{display:flex;gap:8px}
-  .bulk button{flex:1}
+  .bulk{display:flex;gap:8px}.bulk button{flex:1}
   .list{max-height:62vh;overflow:auto}
   .prow{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid #1a222b;position:relative}
   .prow.on{background:linear-gradient(90deg,rgba(163,230,53,.07),transparent)}
@@ -80,45 +76,31 @@
   .pname .leave{color:var(--bomb);margin-left:6px;font-size:11px;letter-spacing:.05em}
   .psub{font-size:11.5px;color:var(--muted2);font-family:var(--mono);margin-top:2px}
   .toggles{display:flex;gap:6px}
-  .tg{border:1px solid var(--line);background:#0e151c;color:var(--muted);border-radius:8px;padding:6px 10px;
-    font:inherit;font-size:11px;letter-spacing:.03em;cursor:pointer;transition:.12s;white-space:nowrap}
+  .tg{border:1px solid var(--line);background:#0e151c;color:var(--muted);border-radius:8px;padding:6px 10px;font:inherit;font-size:11px;letter-spacing:.03em;cursor:pointer;transition:.12s;white-space:nowrap}
   .tg:hover{border-color:var(--muted2)}
   .tg.on{background:var(--brand);color:#0d1014;border-color:var(--brand);font-weight:700}
   .tg.leave.on{background:var(--bomb);border-color:var(--bomb);color:#1a1206}
   .empty{padding:30px 16px;text-align:center;color:var(--muted2);font-size:13px}
-
-  /* verdict */
-  .verdict{border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:18px;
-    position:relative;overflow:hidden;background:var(--panel);transition:.25s}
+  .verdict{border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden;background:var(--panel);transition:.25s}
   .verdict .eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted2)}
-  .verdict .vtype{font-size:34px;font-weight:900;letter-spacing:.01em;margin:4px 0 8px;line-height:1}
+  .verdict .vtype{font-size:34px;font-weight:900;margin:4px 0 8px;line-height:1}
   .verdict .why{font-size:13.5px;color:var(--muted);max-width:60ch;line-height:1.5}
-  .verdict .glow{position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;
-    filter:blur(40px);opacity:.22;pointer-events:none}
-  .vmeta{display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)}
-  .vmeta b{font-family:var(--mono);color:var(--text)}
-
-  /* settings */
+  .verdict .glow{position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;filter:blur(40px);opacity:.22;pointer-events:none}
+  .vmeta{display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)}.vmeta b{font-family:var(--mono);color:var(--text)}
   details.settings{margin-bottom:18px}
-  details.settings summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--muted2);list-style:none;padding:6px 2px}
+  details.settings summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);list-style:none;padding:6px 2px}
   details.settings summary::-webkit-details-marker{display:none}
-  details.settings summary::before{content:"▸ ";color:var(--muted2)}
-  details.settings[open] summary::before{content:"▾ "}
+  details.settings summary::before{content:"▸ ";color:var(--muted2)} details.settings[open] summary::before{content:"▾ "}
   .sgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:14px 2px 4px}
   .sgrid label{font-size:11px;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:6px}
-  .sgrid input{width:100%;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:9px 11px;
-    border-radius:8px;font:inherit;font-family:var(--mono);font-size:13px}
-  .sgrid input:focus{outline:none;border-color:var(--brand)}
-
-  /* plans */
+  .sgrid input{width:100%;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:9px 11px;border-radius:8px;font:inherit;font-family:var(--mono);font-size:13px}
   .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   @media(max-width:1100px){.plans{grid-template-columns:1fr}}
   .plan .card-h{justify-content:space-between}
   .plan .tag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:800}
-  .plan.m .tag{color:var(--machine)} .plan.w .tag{color:var(--waterfall)} .plan.b .tag{color:var(--bomb)}
+  .plan.m .tag{color:var(--machine)}.plan.w .tag{color:var(--waterfall)}.plan.b .tag{color:var(--bomb)}
   .plan .count{font-family:var(--mono);font-size:12px;color:var(--muted)}
-  .plan .bar{height:3px} .plan.m .bar{background:var(--machine)} .plan.w .bar{background:var(--waterfall)} .plan.b .bar{background:var(--bomb)}
+  .plan .bar{height:3px}.plan.m .bar{background:var(--machine)}.plan.w .bar{background:var(--waterfall)}.plan.b .bar{background:var(--bomb)}
   .setlist{max-height:48vh;overflow:auto}
   .set{display:flex;align-items:center;gap:11px;padding:9px 14px;border-bottom:1px solid #1a222b;font-size:13px}
   .set .n{font-family:var(--mono);font-size:11px;color:var(--muted2);width:26px;flex:none;text-align:right}
@@ -126,49 +108,86 @@
   .set .nm .lv{color:var(--bomb);font-size:10px;margin-left:5px}
   .set .v{font-family:var(--mono);font-size:12px;color:var(--muted)}
   .math{padding:12px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);line-height:1.7}
-  .math b{font-family:var(--mono);color:var(--text)}
-  .math .good{color:var(--waterfall)} .math .bad{color:var(--machine)}
+  .math b{font-family:var(--mono);color:var(--text)}.math .good{color:var(--waterfall)}.math .bad{color:var(--machine)}
   .pempty{padding:26px 14px;text-align:center;color:var(--muted2);font-size:12.5px}
+
+  /* ── STATS VIEW ── */
+  #statsView{display:none}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .tabchip{background:#0e151c;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:8px 14px;
+    font:inherit;font-size:12.5px;letter-spacing:.03em;cursor:pointer;transition:.15s}
+  .tabchip:hover{color:var(--text);border-color:var(--muted2)}
+  .tabchip.active{background:var(--brand);color:#0d1014;border-color:var(--brand);font-weight:700}
+  .tabchip.dead{opacity:.4;text-decoration:line-through;cursor:default}
+  .addtab{display:inline-flex;gap:0;align-items:center}
+  .addtab input{width:130px;min-width:0;padding:8px 12px;font-size:12.5px;border-radius:9px 0 0 9px;border-right:none}
+  .addtab button{border-radius:0 9px 9px 0}
+  .statbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .statbar input[type=text]{max-width:260px}
+  .seg{display:flex;background:#0e151c;border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{background:transparent;border:none;color:var(--muted);font:inherit;font-size:12px;padding:6px 14px;border-radius:7px;cursor:pointer}
+  .seg button.active{background:var(--panel2);color:var(--text);font-weight:600}
+  .rowcount{font-size:12px;color:var(--muted2);font-family:var(--mono);margin-left:auto}
+  .tablewrap{overflow:auto;max-height:68vh}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  thead th{position:sticky;top:0;z-index:1;background:var(--panel2);text-align:left;padding:10px 12px;cursor:pointer;
+    white-space:nowrap;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);user-select:none}
+  thead th:hover{color:var(--text)}
+  thead th .ar{color:var(--brand);margin-left:5px;font-size:10px}
+  tbody td{padding:8px 12px;border-bottom:1px solid #161d25;white-space:nowrap;color:var(--text)}
+  tbody td.numv{text-align:right;font-family:var(--mono);color:#cdd7e1}
+  tbody tr:hover td{background:#10161d}
+  tbody td.name{font-weight:600;position:sticky;left:0;background:var(--panel);}
+  tbody tr:hover td.name{background:#10161d}
+  .loadtab{padding:50px 16px;text-align:center;color:var(--muted2);font-size:13px}
+  /* chart */
+  .chartctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+  .chartctl select,.chartctl input{background:#0c1116;border:1px solid var(--line);color:var(--text);padding:7px 10px;border-radius:8px;font:inherit;font-size:12.5px}
+  .chartwrap{padding:16px;max-height:68vh;overflow:auto}
+  .crow{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .crow .cl{width:150px;flex:none;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crow .cbar{flex:1;background:#0e151c;border-radius:6px;height:24px;overflow:hidden}
+  .crow .cfill{height:100%;background:linear-gradient(90deg,var(--brand),#5f9e1a);border-radius:6px;min-width:2px;transition:width .3s}
+  .crow .cv{width:96px;flex:none;text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted)}
+
   footer{margin-top:26px;padding:16px 4px;color:var(--muted2);font-size:11.5px;line-height:1.6}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">
-      <div class="mark">V</div>
-      <div><h1>Rally Planner</h1><p>VIPER War Room</p></div>
+    <div class="logo"><div class="mark" id="mark">V</div><h1>VIPER</h1></div>
+    <div class="nav" id="nav">
+      <button data-view="rally" class="active">Rally Planner</button>
+      <button data-view="stats">Stats</button>
     </div>
     <div class="hspace"></div>
     <div class="src" id="src">
       <span class="dot"></span><span id="srcLabel">live</span>
-      <button class="ghost" id="reload">Reload stats</button>
+      <button class="ghost" id="reload">Reload</button>
       <button class="ghost" id="change">Change sheet</button>
     </div>
   </header>
 
   <!-- SETUP -->
   <section class="setup" id="setup">
-    <h2>Load your roster</h2>
-    <p class="lead">Paste the link to your stats Google Sheet. The planner reads the live
-      <span style="color:var(--text)">ALL STATS</span> and <span style="color:var(--text)">ATTACK</span> tabs —
-      no data is stored, it reads fresh every time.</p>
+    <h2>Connect your stats sheet</h2>
+    <p class="lead">Paste the link to your stats Google Sheet. VIPER reads it live for both the
+      rally planner and the full stats explorer — nothing is stored, it reads fresh every time.</p>
     <div class="field">
       <input type="text" id="url" placeholder="https://docs.google.com/spreadsheets/d/…/edit" autocomplete="off" />
-      <button class="btn" id="load">Load</button>
+      <button class="btn" id="load">Connect</button>
     </div>
     <div class="status" id="status"></div>
     <p class="hint">
-      <b>One-time setup:</b> the sheet must be readable by the link — in the sheet, hit
-      <b>Share → General access → Anyone with the link → Viewer</b>. Nothing else is exposed; the planner
-      only reads it.<br>
-      Just exploring? <button class="demo" id="demoBtn">Load demo data</button> instead.
+      <b>One-time setup:</b> in the sheet, hit <b>Share → General access → Anyone with the link → Viewer</b>.
+      It stays unlisted — only people with the link can read it.<br>
+      Just exploring the planner? <button class="demo" id="demoBtn">Load demo data</button> instead.
     </p>
   </section>
 
-  <!-- APP -->
-  <main id="app">
-    <!-- ROSTER -->
+  <!-- RALLY -->
+  <main id="rallyView">
     <section class="card roster">
       <div class="tools">
         <input type="text" id="search" placeholder="Search a keep…" autocomplete="off" />
@@ -177,15 +196,10 @@
           <span class="chip">Heavy <b id="cHeavy">0</b></span>
           <span class="chip">Marches <b id="cMarch">0</b></span>
         </div>
-        <div class="bulk">
-          <button class="ghost" id="allOn">All online</button>
-          <button class="ghost" id="allOff">Clear</button>
-        </div>
+        <div class="bulk"><button class="ghost" id="allOn">All online</button><button class="ghost" id="allOff">Clear</button></div>
       </div>
       <div class="list" id="list"></div>
     </section>
-
-    <!-- PLANS -->
     <section>
       <div class="verdict" id="verdict">
         <div class="glow" id="glow"></div>
@@ -194,7 +208,6 @@
         <div class="why" id="vwhy">Check someone in to get a recommendation.</div>
         <div class="vmeta" id="vmeta"></div>
       </div>
-
       <details class="settings">
         <summary>Thresholds</summary>
         <div class="sgrid">
@@ -204,244 +217,280 @@
           <div><label>Marches per keep</label><input type="number" id="sMarch" value="5"></div>
         </div>
       </details>
-
       <div class="plans">
         <div class="card plan m"><div class="bar"></div>
           <div class="card-h"><span class="tag">Machine Gun</span><span class="count" id="mCount">0</span></div>
-          <div class="setlist" id="mList"></div>
-        </div>
+          <div class="setlist" id="mList"></div></div>
         <div class="card plan w"><div class="bar"></div>
           <div class="card-h"><span class="tag">Waterfall</span><span class="count" id="wCount">0</span></div>
-          <div class="setlist" id="wList"></div>
-        </div>
+          <div class="setlist" id="wList"></div></div>
         <div class="card plan b"><div class="bar"></div>
           <div class="card-h"><span class="tag">Bomb</span><span class="count" id="bCount">0</span></div>
-          <div class="setlist" id="bList"></div>
-          <div class="math" id="bMath"></div>
-        </div>
+          <div class="setlist" id="bList"></div><div class="math" id="bMath"></div></div>
       </div>
     </section>
   </main>
 
+  <!-- STATS -->
+  <main id="statsView">
+    <div class="tabs" id="tabs"></div>
+    <section class="card">
+      <div class="statbar">
+        <input type="text" id="statSearch" placeholder="Filter rows…" autocomplete="off" />
+        <div class="seg" id="viewSeg">
+          <button data-mode="table" class="active">Table</button>
+          <button data-mode="chart">Chart</button>
+        </div>
+        <span class="rowcount" id="rowCount"></span>
+      </div>
+      <div id="statBody"></div>
+    </section>
+  </main>
+
   <footer>
-    Machine-gun order uses ATTACK <b style="color:var(--muted)">OVERALL</b> as a stand-in until you add a
-    Damage-Dealt-Per-March column — swap the source field then and it's exact. Check-ins live only in this
-    browser session. To keep the sheet fully private instead of link-viewable, a small Apps Script web-app
-    returning JSON is the drop-in alternative.
+    Machine-gun order uses ATTACK <b style="color:var(--muted)">OVERALL</b> as a stand-in until a
+    Damage-Dealt-Per-March column exists. Stats are read live from your sheet each time you open or reload a tab;
+    charts are generated from the data, so they stay current with whatever the sheet holds.
   </footer>
 </div>
 
 <script>
 const S = {
-  players: [], statusByName: {},
-  settings: { heavy:2000000, bomb:24, wf:12, marches:5 },
-  search: "", lastUrl: ""
+  sheetId:null, lastUrl:"", isDemo:false, view:"rally",
+  players:[], statusByName:{},
+  settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"",
+  stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
+    tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
 };
 
-/* ── helpers ─────────────────────────────────────────── */
-const $ = id => document.getElementById(id);
-const norm = v => String(v==null?"":v).trim().replace(/\s+/g," ");
-const num = v => { const n = parseFloat(String(v==null?"":v).replace(/[^0-9.\-]/g,"")); return isNaN(n)?0:n; };
-const comma = n => Math.round(n).toLocaleString("en-US");
-const M = n => n>=1e6 ? (n/1e6).toFixed(2)+"M" : n>=1e3 ? Math.round(n/1e3)+"k" : String(Math.round(n));
+/* helpers */
+const $=id=>document.getElementById(id);
+const norm=v=>String(v==null?"":v).trim().replace(/\s+/g," ");
+const num=v=>{const n=parseFloat(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isNaN(n)?0:n;};
+const comma=n=>Math.round(n).toLocaleString("en-US");
+const Mfmt=n=>n>=1e6?(n/1e6).toFixed(2)+"M":n>=1e3?Math.round(n/1e3)+"k":String(Math.round(n));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const isNumStr=v=>{const t=String(v).trim();return t!==""&&/^-?[\d,]*\.?\d+$/.test(t);};
+function fmtNum(v){const n=parseFloat(String(v).replace(/,/g,""));if(isNaN(n))return v;
+  return Number.isInteger(n)?n.toLocaleString("en-US"):n.toLocaleString("en-US",{maximumFractionDigits:2});}
 
 function parseCSV(text){
-  const rows=[]; let row=[], cur="", q=false;
-  for(let i=0;i<text.length;i++){
-    const c=text[i];
-    if(q){
-      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
-      else cur+=c;
-    } else {
-      if(c==='"') q=true;
-      else if(c===","){ row.push(cur); cur=""; }
-      else if(c==="\n"){ row.push(cur); rows.push(row); row=[]; cur=""; }
-      else if(c==="\r"){}
-      else cur+=c;
-    }
+  const rows=[];let row=[],cur="",q=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false;} else cur+=c; }
+    else{ if(c==='"')q=true; else if(c===","){row.push(cur);cur="";}
+      else if(c==="\n"){row.push(cur);rows.push(row);row=[];cur="";}
+      else if(c==="\r"){} else cur+=c; }
   }
-  if(cur!==""||row.length){ row.push(cur); rows.push(row); }
+  if(cur!==""||row.length){row.push(cur);rows.push(row);}
   return rows;
 }
-
-function extractId(url){ const m=String(url).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/); return m?m[1]:null; }
-function gviz(id,tab){ return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`; }
-
+const extractId=u=>{const m=String(u).match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);return m?m[1]:null;};
+const gviz=(id,tab)=>`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
 async function fetchTab(id,tab){
-  const res = await fetch(gviz(id,tab));
-  const txt = await res.text();
-  if(txt.trim().charAt(0)==="<") throw new Error("notshared");   // got an HTML login page
-  return parseCSV(txt);
+  const res=await fetch(gviz(id,tab));const txt=await res.text();
+  if(txt.trim().charAt(0)==="<")throw new Error("notshared");
+  const rows=parseCSV(txt);
+  if(!rows.length||!rows[0].length)throw new Error("notab");
+  return rows;
 }
+const colIndex=(h,want)=>h.map(x=>norm(x).toUpperCase()).indexOf(want);
 
-function colIndex(headerRow, want){
-  const H = headerRow.map(h=>norm(h).toUpperCase());
-  return H.indexOf(want);
-}
-
-/* ── load ────────────────────────────────────────────── */
-async function loadFromSheet(url){
-  const id = extractId(url);
-  if(!id){ setStatus("That doesn't look like a Google Sheets link.","err"); return; }
-  S.lastUrl = url;
-  setStatus("Reading the sheet…","busy"); $("load").disabled=true;
+/* ── CONNECT ── */
+async function connect(url){
+  const id=extractId(url);
+  if(!id){setStatus("That doesn't look like a Google Sheets link.","err");return;}
+  S.lastUrl=url;setStatus("Reading the sheet…","busy");$("load").disabled=true;
   try{
-    const [stats, atk] = await Promise.all([fetchTab(id,"ALL STATS"), fetchTab(id,"ATTACK")]);
-    buildPlayers(stats, atk);
-    if(!S.players.length) throw new Error("nodata");
-    enterApp(); setStatus("","ok");
+    const [stats,atk]=await Promise.all([fetchTab(id,"ALL STATS"),fetchTab(id,"ATTACK")]);
+    S.sheetId=id;S.isDemo=false;
+    S.stats.cache["ALL STATS"]=stats;S.stats.cache["ATTACK"]=atk;   // seed cache
+    buildPlayers(stats,atk);
+    if(!S.players.length)throw new Error("nodata");
+    enterApp();$("srcLabel").textContent="live";setStatus("","ok");
   }catch(e){
-    if(e.message==="notshared")
-      setStatus("Couldn't read it — set the sheet's link access to “Anyone with the link · Viewer”, then try again.","err");
-    else if(e.message==="nodata")
-      setStatus("Read the sheet, but found no players. Check the tab names are exactly ALL STATS and ATTACK.","err");
-    else
-      setStatus("Live fetch was blocked here (normal in the in-chat preview). Download this file and host it — or use Load demo data.","err");
-  }finally{ $("load").disabled=false; }
+    if(e.message==="notshared")setStatus("Couldn't read it — set the sheet to “Anyone with the link · Viewer”, then try again.","err");
+    else if(e.message==="nodata")setStatus("Read the sheet, but found no players. Check the tabs are named ALL STATS and ATTACK.","err");
+    else setStatus("Live fetch was blocked here (normal in the in-chat preview). Open the hosted page, or use Load demo data.","err");
+  }finally{$("load").disabled=false;}
 }
 
-function buildPlayers(stats, atk){
-  const sh = stats[0]||[], iN=colIndex(sh,"NAME"),
-        iM=colIndex(sh,"MARCH SIZE VS SOP"), iR=colIndex(sh,"RALLYCAP"), iRCA=colIndex(sh,"RCA");
-  const ah = atk[0]||[], aN=colIndex(ah,"NAME"), aO=colIndex(ah,"OVERALL");
+function buildPlayers(stats,atk){
+  const sh=stats[0]||[],iN=colIndex(sh,"NAME"),iM=colIndex(sh,"MARCH SIZE VS SOP"),iR=colIndex(sh,"RALLYCAP"),iRCA=colIndex(sh,"RCA");
+  const ah=atk[0]||[],aN=colIndex(ah,"NAME"),aO=colIndex(ah,"OVERALL");
   const overall={};
-  for(let i=1;i<atk.length;i++){ const nm=norm(atk[i][aN]); if(nm) overall[nm.toUpperCase()]=num(atk[i][aO]); }
-
+  for(let i=1;i<atk.length;i++){const nm=norm(atk[i][aN]);if(nm)overall[nm.toUpperCase()]=num(atk[i][aO]);}
   const out=[];
   for(let i=1;i<stats.length;i++){
-    const r=stats[i], nm=norm(r[iN]); if(!nm) continue;
-    if(iRCA>-1 && norm(r[iRCA]).toUpperCase()==="RCA") continue;
-    const cap=num(r[iR]), march=num(r[iM]), ov=overall[nm.toUpperCase()]||0;
-    if(!cap && !march && !ov) continue;
-    const prev = S.statusByName[nm.toUpperCase()] || {};
-    out.push({ name:nm, rallyCap:cap, march, overall:ov, online:!!prev.online, leaving:!!prev.leaving });
+    const r=stats[i],nm=norm(r[iN]);if(!nm)continue;
+    if(iRCA>-1&&norm(r[iRCA]).toUpperCase()==="RCA")continue;
+    const cap=num(r[iR]),march=num(r[iM]),ov=overall[nm.toUpperCase()]||0;
+    if(!cap&&!march&&!ov)continue;
+    const prev=S.statusByName[nm.toUpperCase()]||{};
+    out.push({name:nm,rallyCap:cap,march,overall:ov,online:!!prev.online,leaving:!!prev.leaving});
   }
-  out.sort((a,b)=>a.name.localeCompare(b.name));
-  S.players = out;
+  out.sort((a,b)=>a.name.localeCompare(b.name));S.players=out;
 }
 
 function loadDemo(){
-  const handles=["KIEZERHARPSKY","ASURA","INSOMNIAC","GEMINI","ART","SCAR","STORMANDGUNZ","FACEDOWNASHUP",
-    "M R BLUE","NIGHTOWL","VANTABLACK","REIGN","KAIJU","ZEPHYR","ONYX","VESPER","HALEFIRE","CINDER",
-    "MARROW","TEMPEST","GRIMWALD","SABLE","RONIN","WIDOW","HEX","FALKOR"];
-  S.players = handles.map((h,i)=>({
-    name:h,
-    rallyCap: Math.round((2.7e6 - i*32000 + (Math.random()-.5)*180000)),
-    march: Math.round(250000 + Math.random()*110000),
-    overall: Math.round(180000 - i*4000 + (Math.random()-.5)*40000),
-    online:false, leaving:false
-  }));
-  S.statusByName={}; enterApp(); setStatus("","ok"); $("srcLabel").textContent="demo data";
+  const h=["KIEZERHARPSKY","ASURA","INSOMNIAC","GEMINI","ART","SCAR","STORMANDGUNZ","FACEDOWNASHUP","M R BLUE","NIGHTOWL","VANTABLACK","REIGN","KAIJU","ZEPHYR","ONYX","VESPER","HALEFIRE","CINDER","MARROW","TEMPEST","GRIMWALD","SABLE","RONIN","WIDOW","HEX","FALKOR"];
+  S.players=h.map((x,i)=>({name:x,rallyCap:Math.round(2.7e6-i*32000+(Math.random()-.5)*180000),march:Math.round(250000+Math.random()*110000),overall:Math.round(180000-i*4000+(Math.random()-.5)*40000),online:false,leaving:false}));
+  S.statusByName={};S.isDemo=true;S.sheetId=null;enterApp();$("srcLabel").textContent="demo data";setStatus("","ok");
 }
 
-/* ── recommendation + plans ──────────────────────────── */
-function recommend(online, heavy){
+/* ── RALLY ── */
+function recommend(online,heavy){
   const s=S.settings;
-  if(online.length===0) return {key:"none", label:"Awaiting check-ins", color:"var(--muted2)",
-    why:"Check someone in to get a recommendation.", glow:"transparent"};
-  const n=online.length, h=heavy.length;
-  if(n>=s.bomb) return {key:"bomb", label:"Bomb", color:"var(--bomb)", glow:"var(--bomb)",
-    why:`${n} setters online — enough bodies to put up and fill 100+ rallies. Everyone sets; biggest caps lead the timed waves.`};
-  if(h>=s.wf) return {key:"waterfall", label:"Waterfall", color:"var(--waterfall)", glow:"var(--waterfall)",
-    why:`${h} heavy setters (cap ≥ ${M(s.heavy)}) — strong core to anchor the 10-minute rallies and roll the rest in.`};
-  return {key:"machine", label:"Machine Gun", color:"var(--machine)", glow:"var(--machine)",
-    why:`Lean crew (${n} online) — set fast, no refresh window, then everyone fills down. Order is highest damage-per-march first.`};
+  if(online.length===0)return{label:"Awaiting check-ins",color:"var(--muted2)",glow:"transparent",why:"Check someone in to get a recommendation."};
+  const n=online.length,hh=heavy.length;
+  if(n>=s.bomb)return{label:"Bomb",color:"var(--bomb)",glow:"var(--bomb)",why:`${n} setters online — enough bodies to put up and fill 100+ rallies. Everyone sets; biggest caps lead the timed waves.`};
+  if(hh>=s.wf)return{label:"Waterfall",color:"var(--waterfall)",glow:"var(--waterfall)",why:`${hh} heavy setters (cap ≥ ${Mfmt(s.heavy)}) — strong core to anchor the 10-minute rallies and roll the rest in.`};
+  return{label:"Machine Gun",color:"var(--machine)",glow:"var(--machine)",why:`Lean crew (${n} online) — set fast, no refresh window, then everyone fills down. Order is highest damage-per-march first.`};
 }
-
-function render(){
-  const ps=S.players, q=S.search.toLowerCase();
-  const online = ps.filter(p=>p.online);
-  const heavy  = online.filter(p=>p.rallyCap>=S.settings.heavy);
-  const marches= online.length*S.settings.marches;
-
-  $("cOnline").textContent=online.length;
-  $("cHeavy").textContent=heavy.length;
-  $("cMarch").textContent=comma(marches);
-
-  // roster list
-  const shown = q ? ps.filter(p=>p.name.toLowerCase().includes(q)) : ps;
-  $("list").innerHTML = shown.length ? shown.map(p=>{
-    const idx=ps.indexOf(p);
-    return `<div class="prow ${p.online?'on':''}">
-      <div class="pinfo">
-        <div class="pname">${esc(p.name)}${p.leaving?'<span class="leave">⚠ leaving</span>':''}</div>
-        <div class="psub">${comma(p.rallyCap)} cap · ${comma(p.march)} march</div>
-      </div>
+function renderRally(){
+  const ps=S.players,q=S.search.toLowerCase();
+  const online=ps.filter(p=>p.online),heavy=online.filter(p=>p.rallyCap>=S.settings.heavy),marches=online.length*S.settings.marches;
+  $("cOnline").textContent=online.length;$("cHeavy").textContent=heavy.length;$("cMarch").textContent=comma(marches);
+  const shown=q?ps.filter(p=>p.name.toLowerCase().includes(q)):ps;
+  $("list").innerHTML=shown.length?shown.map(p=>{const idx=ps.indexOf(p);
+    return `<div class="prow ${p.online?'on':''}"><div class="pinfo">
+      <div class="pname">${esc(p.name)}${p.leaving?'<span class="leave">⚠ leaving</span>':''}</div>
+      <div class="psub">${comma(p.rallyCap)} cap · ${comma(p.march)} march</div></div>
       <div class="toggles">
         <button class="tg ${p.online?'on':''}" data-on="${idx}">${p.online?'Online':'Set online'}</button>
         <button class="tg leave ${p.leaving?'on':''}" data-lv="${idx}" title="Mark leaving soon">⏳</button>
-      </div>
-    </div>`;
-  }).join("") : `<div class="empty">No keep matches “${esc(S.search)}”.</div>`;
-
-  // verdict
+      </div></div>`;}).join(""):`<div class="empty">No keep matches “${esc(S.search)}”.</div>`;
   const rec=recommend(online,heavy);
-  $("vtype").textContent=rec.label; $("vtype").style.color=rec.color;
-  $("vwhy").textContent=rec.why;
-  $("glow").style.background=rec.glow;
-  $("verdict").style.borderColor = rec.key==="none" ? "var(--line)" : rec.color+"66";
-  $("vmeta").innerHTML = online.length ?
-    `<span>Online <b>${online.length}</b></span><span>Heavy <b>${heavy.length}</b></span><span>Marches <b>${comma(marches)}</b></span>` : "";
-
-  // plans
-  const byOverall=[...online].sort((a,b)=>b.overall-a.overall);
-  const byCap=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
-  $("mList").innerHTML=setRows(byOverall, p=>M(p.overall)+" dmg/m");
-  $("wList").innerHTML=setRows(byCap, p=>comma(p.rallyCap));
-  $("bList").innerHTML=setRows(byCap, p=>comma(p.rallyCap));
+  $("vtype").textContent=rec.label;$("vtype").style.color=rec.color;$("vwhy").textContent=rec.why;
+  $("glow").style.background=rec.glow;$("verdict").style.borderColor=rec.glow==="transparent"?"var(--line)":rec.color+"66";
+  $("vmeta").innerHTML=online.length?`<span>Online <b>${online.length}</b></span><span>Heavy <b>${heavy.length}</b></span><span>Marches <b>${comma(marches)}</b></span>`:"";
+  const byOv=[...online].sort((a,b)=>b.overall-a.overall),byCap=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  $("mList").innerHTML=setRows(byOv,p=>Mfmt(p.overall)+" dmg/m");
+  $("wList").innerHTML=setRows(byCap,p=>comma(p.rallyCap));
+  $("bList").innerHTML=setRows(byCap,p=>comma(p.rallyCap));
   $("mCount").textContent=$("wCount").textContent=$("bCount").textContent=online.length;
+  if(online.length){const aC=online.reduce((s,p)=>s+p.rallyCap,0)/online.length,aM=online.reduce((s,p)=>s+p.march,0)/online.length||1,pr=aC/aM,fill=marches/pr,ok=fill>=100;
+    $("bMath").innerHTML=`Avg cap <b>${comma(aC)}</b> · avg march <b>${comma(aM)}</b><br>≈ <b>${pr.toFixed(1)}</b> marches per rally<br>Fillable rallies ≈ <b class="${ok?'good':'bad'}">${Math.floor(fill)}</b> ${ok?'— clears the bomb bar':'— short of 100'}`;}
+  else $("bMath").innerHTML="";
+}
+function setRows(list,vf){return list.length?list.map((p,i)=>`<div class="set"><span class="n">${i+1}</span><span class="nm">${esc(p.name)}${p.leaving?'<span class="lv">⚠</span>':''}</span><span class="v">${vf(p)}</span></div>`).join(""):`<div class="pempty">No one checked in yet.</div>`;}
 
-  // bomb math
-  if(online.length){
-    const avgCap=online.reduce((s,p)=>s+p.rallyCap,0)/online.length;
-    const avgMarch=online.reduce((s,p)=>s+p.march,0)/online.length||1;
-    const perRally=avgCap/avgMarch;
-    const fill=marches/perRally;
-    const ok=fill>=100;
-    $("bMath").innerHTML=
-      `Avg cap <b>${comma(avgCap)}</b> · avg march <b>${comma(avgMarch)}</b><br>`+
-      `≈ <b>${perRally.toFixed(1)}</b> marches per rally<br>`+
-      `Fillable rallies ≈ <b class="${ok?'good':'bad'}">${Math.floor(fill)}</b> ${ok?'— clears the bomb bar':'— short of 100'}`;
-  } else $("bMath").innerHTML="";
+/* ── STATS ── */
+function renderTabChips(){
+  $("tabs").innerHTML=S.stats.tabList.map(t=>{
+    const dead=S.stats.fail[t]?"dead":"";const active=S.stats.active===t?"active":"";
+    return `<button class="tabchip ${active} ${dead}" data-tab="${esc(t)}">${esc(t)}</button>`;
+  }).join("")+`<span class="addtab"><input type="text" id="newtab" placeholder="add tab name" autocomplete="off"><button class="ghost" id="addtab">+</button></span>`;
+}
+async function selectTab(t){
+  if(S.isDemo){$("statBody").innerHTML='<div class="loadtab">Stats need a live sheet. Use “Change sheet” to connect one.</div>';return;}
+  S.stats.active=t;S.stats.q="";$("statSearch").value="";renderTabChips();
+  if(S.stats.cache[t]){renderStatBody();return;}
+  $("statBody").innerHTML='<div class="loadtab">Loading '+esc(t)+'…</div>';$("rowCount").textContent="";
+  try{ S.stats.cache[t]=await fetchTab(S.sheetId,t); delete S.stats.fail[t]; renderStatBody(); }
+  catch(e){ S.stats.fail[t]=true; renderTabChips();
+    $("statBody").innerHTML='<div class="loadtab">Couldn’t load “'+esc(t)+'”. The tab may be named differently or empty.</div>'; }
+}
+function cleanRows(raw){
+  const header=raw[0]||[];
+  const data=raw.slice(1).filter(r=>r.some(c=>norm(c)!==""));
+  // trim trailing empty columns
+  let last=0;header.forEach((h,i)=>{if(norm(h)!=="")last=i;});
+  const H=header.slice(0,last+1),D=data.map(r=>r.slice(0,last+1));
+  const numeric=H.map((_,c)=>{let t=0,ok=0;for(const r of D){const v=r[c];if(norm(v)==="")continue;t++;if(isNumStr(v))ok++;}return t>0&&ok/t>=0.7;});
+  return{H,D,numeric};
+}
+function renderStatBody(){
+  const raw=S.stats.cache[S.stats.active];if(!raw)return;
+  const {H,D,numeric}=cleanRows(raw);
+  if(S.stats.mode==="chart"){renderChart(H,D,numeric);return;}
+  const q=S.stats.q.toLowerCase();
+  let rows=q?D.filter(r=>r.some(c=>String(c).toLowerCase().includes(q))):D.slice();
+  const so=S.stats.sort[S.stats.active];
+  if(so){const c=so.col,dir=so.dir;rows.sort((a,b)=>{
+    if(numeric[c]){return (num(a[c])-num(b[c]))*dir;}
+    return String(a[c]).localeCompare(String(b[c]))*dir;});}
+  const total=rows.length,cap=1000,capped=total>cap;if(capped)rows=rows.slice(0,cap);
+  $("rowCount").textContent=`${total} row${total!==1?"s":""}${capped?" · showing 1,000":""}`;
+  const head="<tr>"+H.map((h,c)=>{const a=so&&so.col===c?(so.dir>0?'<span class="ar">▲</span>':'<span class="ar">▼</span>'):"";return `<th data-col="${c}">${esc(h)||"—"}${a}</th>`;}).join("")+"</tr>";
+  const body=rows.map(r=>"<tr>"+H.map((_,c)=>{const v=r[c]==null?"":r[c];const isN=numeric[c]&&isNumStr(v);
+    const cls=c===0?"name":(isN?"numv":"");return `<td class="${cls}">${isN?fmtNum(v):esc(v)}</td>`;}).join("")+"</tr>").join("");
+  $("statBody").innerHTML=`<div class="tablewrap"><table><thead>${head}</thead><tbody>${body||'<tr><td class="loadtab">No matching rows.</td></tr>'}</tbody></table></div>`;
+}
+function renderChart(H,D,numeric){
+  const numCols=H.map((h,i)=>({h,i})).filter(o=>numeric[o.i]);
+  if(!numCols.length){$("statBody").innerHTML='<div class="loadtab">No numeric columns to chart in this tab.</div>';$("rowCount").textContent="";return;}
+  let valCol=S.stats.chartCol[S.stats.active];
+  if(valCol==null||!numeric[valCol]){
+    const ov=H.findIndex(h=>norm(h).toUpperCase()==="OVERALL");valCol=ov>-1?ov:numCols[0].i;S.stats.chartCol[S.stats.active]=valCol;
+  }
+  const labelCol=0,topN=S.stats.topN;
+  let pairs=D.map(r=>({l:norm(r[labelCol]),v:num(r[valCol])})).filter(p=>p.l&&p.v>0);
+  pairs.sort((a,b)=>b.v-a.v);pairs=pairs.slice(0,topN);
+  const max=pairs.length?pairs[0].v:1;
+  $("rowCount").textContent=`top ${pairs.length}`;
+  const opts=numCols.map(o=>`<option value="${o.i}" ${o.i===valCol?"selected":""}>${esc(o.h)}</option>`).join("");
+  const bars=pairs.map(p=>`<div class="crow"><div class="cl">${esc(p.l)}</div><div class="cbar"><div class="cfill" style="width:${Math.max(2,p.v/max*100)}%"></div></div><div class="cv">${comma(p.v)}</div></div>`).join("");
+  $("statBody").innerHTML=`<div class="chartctl">
+      <span>Rank by</span><select id="chartCol">${opts}</select>
+      <span>Top</span><input type="number" id="chartTop" value="${topN}" min="3" max="50" style="width:64px">
+    </div><div class="chartwrap">${bars||'<div class="loadtab">No data to chart.</div>'}</div>`;
 }
 
-function setRows(list, valFn){
-  if(!list.length) return `<div class="pempty">No one checked in yet.</div>`;
-  return list.map((p,i)=>`<div class="set">
-    <span class="n">${i+1}</span>
-    <span class="nm">${esc(p.name)}${p.leaving?'<span class="lv">⚠</span>':''}</span>
-    <span class="v">${valFn(p)}</span></div>`).join("");
+/* ── UI plumbing ── */
+function setStatus(t,cls){const e=$("status");e.textContent=t;e.className="status "+(cls||"");}
+function setView(v){
+  S.view=v;[...$("nav").children].forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  $("rallyView").style.display=v==="rally"?"grid":"none";
+  $("statsView").style.display=v==="stats"?"block":"none";
+  if(v==="stats"){ renderTabChips(); if(!S.stats.active) selectTab(S.stats.tabList[0]); else renderStatBody(); }
 }
-function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-
-/* ── ui plumbing ─────────────────────────────────────── */
-function setStatus(t,cls){ const e=$("status"); e.textContent=t; e.className="status "+(cls||""); }
 function enterApp(){
-  $("setup").style.display="none"; $("app").style.display="grid"; $("src").style.display="flex";
-  render();
+  $("setup").style.display="none";$("nav").style.display="flex";$("src").style.display="flex";
+  setView(S.view==="stats"?"stats":"rally");renderRally();
 }
 
-$("load").onclick=()=>loadFromSheet($("url").value.trim());
-$("url").addEventListener("keydown",e=>{ if(e.key==="Enter") $("load").click(); });
+$("load").onclick=()=>connect($("url").value.trim());
+$("url").addEventListener("keydown",e=>{if(e.key==="Enter")$("load").click();});
 $("demoBtn").onclick=loadDemo;
 $("reload").onclick=()=>{
-  S.statusByName={}; S.players.forEach(p=>S.statusByName[p.name.toUpperCase()]={online:p.online,leaving:p.leaving});
-  if(S.lastUrl) loadFromSheet(S.lastUrl); else render();
+  if(S.view==="rally"){
+    S.statusByName={};S.players.forEach(p=>S.statusByName[p.name.toUpperCase()]={online:p.online,leaving:p.leaving});
+    if(S.sheetId)connect(S.lastUrl);else renderRally();
+  }else if(S.stats.active&&S.sheetId){ delete S.stats.cache[S.stats.active]; selectTab(S.stats.active); }
 };
-$("change").onclick=()=>{ $("app").style.display="none"; $("src").style.display="none"; $("setup").style.display="block"; };
+$("change").onclick=()=>{["rallyView","statsView"].forEach(i=>$(i).style.display="none");$("nav").style.display="none";$("src").style.display="none";$("setup").style.display="block";};
+$("nav").addEventListener("click",e=>{const b=e.target.closest("[data-view]");if(b)setView(b.dataset.view);});
 
-$("search").addEventListener("input",e=>{ S.search=e.target.value; render(); });
-$("allOn").onclick=()=>{ S.players.forEach(p=>p.online=true); render(); };
-$("allOff").onclick=()=>{ S.players.forEach(p=>{p.online=false;p.leaving=false;}); render(); };
-
+/* rally events */
+$("search").addEventListener("input",e=>{S.search=e.target.value;renderRally();});
+$("allOn").onclick=()=>{S.players.forEach(p=>p.online=true);renderRally();};
+$("allOff").onclick=()=>{S.players.forEach(p=>{p.online=false;p.leaving=false;});renderRally();};
 $("list").addEventListener("click",e=>{
-  const on=e.target.closest("[data-on]"), lv=e.target.closest("[data-lv]");
-  if(on){ const p=S.players[+on.dataset.on]; p.online=!p.online; if(!p.online)p.leaving=false; render(); }
-  else if(lv){ const p=S.players[+lv.dataset.lv]; p.leaving=!p.leaving; if(p.leaving)p.online=true; render(); }
+  const on=e.target.closest("[data-on]"),lv=e.target.closest("[data-lv]");
+  if(on){const p=S.players[+on.dataset.on];p.online=!p.online;if(!p.online)p.leaving=false;renderRally();}
+  else if(lv){const p=S.players[+lv.dataset.lv];p.leaving=!p.leaving;if(p.leaving)p.online=true;renderRally();}
 });
+[["sHeavy","heavy"],["sBomb","bomb"],["sWf","wf"],["sMarch","marches"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.settings[k]=num(e.target.value);renderRally();}));
 
-[["sHeavy","heavy"],["sBomb","bomb"],["sWf","wf"],["sMarch","marches"]].forEach(([id,key])=>{
-  $(id).addEventListener("input",e=>{ S.settings[key]=num(e.target.value); render(); });
+/* stats events */
+$("tabs").addEventListener("click",e=>{
+  const chip=e.target.closest("[data-tab]"),add=e.target.closest("#addtab");
+  if(chip&&!chip.classList.contains("dead"))selectTab(chip.dataset.tab);
+  else if(add){const v=norm($("newtab").value);if(v&&!S.stats.tabList.includes(v)){S.stats.tabList.push(v);selectTab(v);}}
+});
+$("tabs").addEventListener("keydown",e=>{if(e.target.id==="newtab"&&e.key==="Enter")$("addtab").click();});
+$("statSearch").addEventListener("input",e=>{S.stats.q=e.target.value;if(S.stats.mode==="table")renderStatBody();});
+$("viewSeg").addEventListener("click",e=>{const b=e.target.closest("[data-mode]");if(!b)return;
+  S.stats.mode=b.dataset.mode;[...$("viewSeg").children].forEach(x=>x.classList.toggle("active",x===b));renderStatBody();});
+$("statBody").addEventListener("click",e=>{
+  const th=e.target.closest("th[data-col]");
+  if(th){const c=+th.dataset.col,cur=S.stats.sort[S.stats.active];
+    S.stats.sort[S.stats.active]=cur&&cur.col===c?{col:c,dir:-cur.dir}:{col:c,dir:1};renderStatBody();}
+});
+$("statBody").addEventListener("change",e=>{
+  if(e.target.id==="chartCol"){S.stats.chartCol[S.stats.active]=+e.target.value;renderStatBody();}
+  if(e.target.id==="chartTop"){S.stats.topN=Math.max(3,Math.min(50,+e.target.value||15));renderStatBody();}
 });
 </script>
 </body>
