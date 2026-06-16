@@ -218,6 +218,9 @@
   .stagepick{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
   .stagepick label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);border:1px solid var(--line);padding:6px 11px;border-radius:8px;cursor:pointer}
   .stagepick input{accent-color:var(--brand)}
+  .wsecrow{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
+  .wsecrow input{width:60px;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:6px 9px;border-radius:7px;font:inherit;font-family:var(--mono);font-size:12.5px;margin:0 4px}
+  .wshint{color:var(--muted2);font-size:11.5px}
   .runbtns{display:flex;gap:10px;justify-content:center;margin-top:14px}
   .alert{animation:flash .7s ease-in-out infinite}
   @keyframes flash{0%,100%{color:var(--text)}50%{color:var(--bomb)}}
@@ -505,7 +508,8 @@ function buildRolling(online){
     <li>5-minute rallies only — each setter fires <b>all</b> their marches on their turn.</li>
     <li>Wait <b>${x}s</b> between setters, so a rally lands roughly every ${x}s.</li>
     <li>After the last setter, setter 1's marches are back — they go again. Loop forever.</li></ol></div>
-    <div class="sec"><h4>Order &amp; timing (first cycle)</h4>${schedHTML(order,(p,i)=>"sets +"+clk(i*x))}</div>`;
+    <div class="sec"><h4>Order &amp; timing (first cycle)</h4>${schedHTML(order,(p,i)=>"sets +"+clk(i*x))}</div>
+    <div class="sec"><h4>Run it</h4><p>Hit start — VIPER calls each setter in turn and counts down the ${x}s gap, looping forever.</p>${runnerShell("rolling")}</div>`;
 }
 function buildWaterfall(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
@@ -522,7 +526,8 @@ function buildWaterfall(online){
     <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
     <li><b>Roll the rest:</b> with their remaining marches, setters roll 5-min rallies in order, <b>${x}s apart</b>.</li>
     <li>Timed so the <b>last roller lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
-    <div class="sec"><h4>Roller order &amp; timing</h4>${rollSched}</div>`;
+    <div class="sec"><h4>Roller order &amp; timing</h4>${rollSched}</div>
+    <div class="sec"><h4>Run it</h4><p>Start the bomb window first (everyone sets their 2-march 10-min rally at their march-time), then VIPER calls each roller in turn, timed so the last lands 10s before the bomb.</p>${runnerShell("waterfall")}</div>`;
 }
 function buildBomb(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
@@ -535,16 +540,12 @@ function buildBomb(online){
     <p>Every march must hit the SOP on the <b>same second</b>. You stagger rally <b>lengths</b> so they all land together — a 60-min set at the 60-min mark, a 30-min at the 30-min mark, a 10-min at the 10-min mark — all arriving at impact.</p>
     <p>No need to enter anyone's march time: at each mark there's a <b>60-second window</b>, and each player just launches when the countdown shows <b>their own march-time</b> in seconds. Longer march times launch earlier; everything converges.</p></div>
     <div class="sec"><h4>Run the bomb</h4>
-    <p>Pick the rally lengths you're using, then start. VIPER alerts 60s before each window and counts every one down to impact.</p>
-    <div class="stagepick" id="stagePick">${[60,30,10,5].map(L=>`<label><input type="checkbox" data-stage="${L}" ${[60,30,10].includes(L)?"checked":""}> ${L}-min</label>`).join("")}</div>
+    <p>Pick the rally lengths you're using and your set window, then start. VIPER alerts 60s before each window and counts every one down to impact.</p>
     ${runnerShell("bomb")}</div>`;
 }
 function buildShock(online){
-  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
   const totalM=online.reduce((s,p)=>s+p.marches,0);
-  const props=[0.58,0.25,0.17];const cum=[props[0],props[0]+props[1]].map(f=>f*totalM);
-  const waves=[[],[],[]];let acc=0;
-  for(const p of order){let wi=0;if(acc>=cum[1])wi=2;else if(acc>=cum[0])wi=1;waves[wi].push(p);acc+=p.marches;}
+  const waves=computeWaves(online);
   const wm=waves.map(w=>w.reduce((s,p)=>s+p.marches,0));
   const labels=["Primary bomb (lands first)","Wave 1 — lands +30s","Wave 2 — lands +45s"];
   const wavesHTML=waves.map((w,i)=>w.length?`<div class="sec"><h4>${labels[i]} · ${wm[i]} rallies</h4>${schedHTML(w,p=>comma(p.rallyCap))}</div>`:"").join("");
@@ -555,55 +556,149 @@ function buildShock(online){
     ${wavesHTML}
     <div class="sec"><h4>How it runs</h4><ol>
     <li>Build it like a bomb (stagger rally lengths so each wave's marches land together).</li>
-    <li>In each window: <b>primary</b> launches at their march-time, <b>wave 1</b> launches 30s later, <b>wave 2</b> 15s after wave 1.</li>
+    <li>VIPER opens a separate timed set window for <b>each wave</b> — primary, then wave 1, then wave 2 — each with its own march-time countdown.</li>
     <li>Arrivals: primary, then +30s wave 1, then +45s wave 2.</li></ol></div>
     <div class="sec"><h4>Run the shockwave</h4>
-    <div class="stagepick" id="stagePick">${[60,30,10,5].map(L=>`<label><input type="checkbox" data-stage="${L}" ${[10].includes(L)?"checked":""}> ${L}-min</label>`).join("")}</div>
+    <p>Keep the set window short enough that the waves stay distinct (≤ your wave gap).</p>
     ${runnerShell("shock")}</div>`;
 }
+function defaultStages(type){return type==="shock"?[10]:[60,30,10];}
+function startLabel(type){return {rolling:"Start rolling",waterfall:"Start waterfall",bomb:"Start bomb",shock:"Start shockwave"}[type]||"Start";}
 function runnerShell(type){
+  const stages=(type==="bomb"||type==="shock"), wsec=(type!=="rolling");
   return `<div class="runner" id="runner" data-type="${type}">
+    ${stages?`<div class="stagepick" id="stagePick">${[60,30,10,5].map(L=>`<label><input type="checkbox" data-stage="${L}" ${defaultStages(type).includes(L)?"checked":""}> ${L}-min</label>`).join("")}</div>`:""}
+    ${wsec?`<div class="wsecrow">Set window <input type="number" id="winSecs" min="5" max="180" value="60"> sec <span class="wshint">— extra countdown to align impacts; set ≥ your slowest march time</span></div>`:""}
     <div class="run-clock" id="runClock">--:--</div>
     <div class="run-status" id="runStatus">Ready when you are.</div>
     <div class="run-big" id="runBig"></div><div class="run-sub" id="runSub"></div>
     <div class="run-windows" id="runWindows"></div>
-    <div class="runbtns"><button class="btn" id="runStart">Start ${type==="shock"?"shockwave":"bomb"}</button><button class="ghost" id="runStop">Stop</button></div></div>`;
+    <div class="runbtns"><button class="btn" id="runStart">${startLabel(type)}</button><button class="ghost" id="runStop">Stop</button></div></div>`;
 }
 function getStages(){return [...document.querySelectorAll("#stagePick input:checked")].map(i=>+i.dataset.stage).sort((a,b)=>b-a);}
+function getWindowSecs(){const el=$("winSecs");const v=el?+el.value:60;return Math.max(5,Math.min(180,v||60));}
+function computeWaves(online){
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const totalM=order.reduce((s,p)=>s+p.marches,0)||1;
+  const cum=[0.58,0.83].map(f=>f*totalM);
+  const waves=[[],[],[]];let acc=0;
+  for(const p of order){let wi=0;if(acc>=cum[1])wi=2;else if(acc>=cum[0])wi=1;waves[wi].push(p);acc+=p.marches;}
+  return waves;
+}
 function stopRunner(){if(S.runner){if(S.runner.id)clearInterval(S.runner.id);if(S.runner._end)clearTimeout(S.runner._end);}S.runner=null;}
 function startRunner(type){
-  stopRunner();const stages=getStages();
-  if(!stages.length){if($("runStatus"))$("runStatus").textContent="Pick at least one rally length.";return;}
-  const now=Date.now(),maxL=stages[0],impact=now+(maxL*60+60)*1000;
-  const W=stages.map(L=>{const we=impact-L*60*1000;return {L,ws:we-60000,we};});
-  S.runner={type,impact,W,id:setInterval(tickRunner,250)};tickRunner();
+  stopRunner();
+  if(type==="rolling")startRolling();
+  else if(type==="waterfall")startWaterfall();
+  else if(type==="shock")startShock();
+  else startBomb();
+}
+function startRolling(){
+  const online=S.players.filter(p=>p.online);
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  if(order.length<2){$("runStatus").textContent="Need at least 2 setters.";return;}
+  const x=Math.max(1,Math.round(300/order.length));
+  S.runner={type:"rolling",order,x,startTs:Date.now(),id:setInterval(tickRunner,200)};tickRunner();
+}
+function startWaterfall(){
+  const online=S.players.filter(p=>p.online);
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const rollers=order.filter(p=>p.marches>2);const Nr=rollers.length;
+  const win=getWindowSecs();const now=Date.now();
+  const bombWinEnd=now+win*1000, bombImpact=bombWinEnd+600*1000;
+  const x=Nr>=2?(290/(Nr-1)):0;
+  S.runner={type:"waterfall",rollers,Nr,x,win,bombWinEnd,bombImpact,id:setInterval(tickRunner,200)};tickRunner();
+}
+function startBomb(){
+  const stages=getStages();if(!stages.length){$("runStatus").textContent="Pick at least one rally length.";return;}
+  const win=getWindowSecs();const now=Date.now(),maxL=stages[0];
+  const impact=now+(maxL*60+win)*1000;
+  const W=stages.map(L=>{const we=impact-L*60*1000;return {L,ws:we-win*1000,we};});
+  S.runner={type:"bomb",impact,W,win,id:setInterval(tickRunner,200)};tickRunner();
+}
+function startShock(){
+  const stages=getStages();if(!stages.length){$("runStatus").textContent="Pick at least one rally length.";return;}
+  const online=S.players.filter(p=>p.online);
+  const waves=computeWaves(online),offsets=[0,30,45];
+  const win=getWindowSecs();const now=Date.now(),maxL=stages[0];
+  const baseImpact=now+(maxL*60+win)*1000;
+  const W=[];
+  waves.forEach((w,wi)=>{if(!w.length)return;const wImp=baseImpact+offsets[wi]*1000;
+    stages.forEach(L=>{const we=wImp-L*60*1000;W.push({L,ws:we-win*1000,we,wave:wi});});});
+  W.sort((a,b)=>a.ws-b.ws);
+  S.runner={type:"shock",baseImpact,W,win,id:setInterval(tickRunner,200)};tickRunner();
 }
 function tickRunner(){
-  const r=S.runner;if(!r||!$("runClock")){return;}
+  const r=S.runner;if(!r||!$("runClock"))return;
+  if(r.type==="rolling")tickRolling(r);
+  else if(r.type==="waterfall")tickWaterfall(r);
+  else if(r.type==="shock")tickShock(r);
+  else tickBomb(r);
+}
+function setRun(status,big,sub,alert){$("runStatus").textContent=status;$("runStatus").classList.toggle("alert",!!alert);$("runBig").textContent=big||"";$("runSub").textContent=sub||"";}
+function tickRolling(r){
+  const now=Date.now(),el=(now-r.startTs)/1000;
+  const slot=Math.floor(el/r.x),idx=slot%r.order.length,cycle=Math.floor(slot/r.order.length)+1;
+  const cur=r.order[idx],next=r.order[(idx+1)%r.order.length],rem=r.x-(el%r.x);
+  $("runClock").textContent="cycle "+cycle;
+  setRun("SET — "+cur.name,clk(rem),"next: "+next.name+" · gap "+r.x+"s",true);
+  $("runWindows").innerHTML=r.order.map((p,i)=>`<div class="run-win ${i===idx?'active':''}"><span>${i+1}. ${esc(p.name)}</span><span>${i===idx?'SET NOW':''}</span></div>`).join("");
+}
+function tickWaterfall(r){
+  const now=Date.now(),toImp=(r.bombImpact-now)/1000;
+  $("runClock").textContent=toImp>0?clkH(toImp)+" to bomb":"BOMB";
+  const rollEnd=r.bombWinEnd+(r.Nr>0?(r.Nr-1)*r.x*1000:0)+1000;
+  if(now<r.bombWinEnd){
+    setRun("SET your 2-march 10-min BOMB",clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+  }else if(r.Nr>0 && now<rollEnd){
+    const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0,idx=Math.min(slot,r.Nr-1),cur=r.rollers[idx];
+    setRun("ROLL — "+cur.name, r.x>0?clk(r.x-(t%r.x)):"go", "rollers left: "+(r.Nr-1-idx)+" · bomb in "+clkH(toImp), true);
+  }else if(toImp>0){
+    setRun("Rollers away — BOMB incoming",clkH(toImp),"everything converging on 10:00",false);
+  }else{
+    setRun("BOMB IMPACT — all marches landing","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);
+  }
+  let html=`<div class="run-win ${now<r.bombWinEnd?'active':'done'}"><span>10-min bomb · all setters, 2 marches</span><span>${now<r.bombWinEnd?clk((r.bombWinEnd-now)/1000):'✓ set'}</span></div>`;
+  if(r.Nr>0){const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0;
+    html+=r.rollers.map((p,i)=>{const setAt=r.bombWinEnd+i*r.x*1000,isNow=now>=r.bombWinEnd&&Math.min(slot,r.Nr-1)===i&&now<r.bombImpact;
+      const t2=now<setAt?clk((setAt-now)/1000)+" to roll":(isNow?"ROLL NOW":"✓ rolled");
+      return `<div class="run-win ${isNow?'active':''} ${(now>=setAt&&!isNow)?'done':''}"><span>roll ${i+1}. ${esc(p.name)}</span><span>${t2}</span></div>`;}).join("");}
+  $("runWindows").innerHTML=html;
+}
+function tickBomb(r){
   const now=Date.now(),toImp=(r.impact-now)/1000;
   $("runClock").textContent=toImp>0?clkH(toImp):"IMPACT";
-  let status="",big="",sub="",alert=false;
   let active=null,next=null;
   for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
   if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
-  if(toImp<=0){
-    if(r.type==="shock"){const since=-toImp;
-      if(since<30){status="PRIMARY IMPACT";big=clk(30-since);sub="Wave 1 lands in…";}
-      else if(since<45){status="WAVE 1 IN";big=clk(45-since);sub="Wave 2 lands in…";}
-      else{status="WAVE 2 IN — clear them";if(!r._end)r._end=setTimeout(stopRunner,6000);}
-    }else{status="IMPACT — all marches landing";if(!r._end)r._end=setTimeout(stopRunner,6000);}
-    alert=true;
-  }else if(active){status=`SET your ${active.L}-min rallies`;big=clk((active.we-now)/1000);
-    sub="Launch when this shows YOUR march-time (sec)"+(r.type==="shock"?" · Wave1 +30s, Wave2 +45s":"");alert=true;
-  }else if(next){const toWin=(next.ws-now)/1000;
-    if(toWin<=60){status=`GET READY — ${next.L}-min set`;big=clk(toWin);sub="Window opens at 0:00";alert=true;}
-    else{status=`Standing by · next set: ${next.L}-min`;big=clk(toWin);sub="Window opens when this hits 1:00";}
-  }else{status="Rallies away — waiting on impact";}
-  $("runStatus").textContent=status;$("runStatus").classList.toggle("alert",alert);
-  $("runBig").textContent=big;$("runSub").textContent=sub;
+  if(toImp<=0){setRun("IMPACT — all marches landing","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);}
+  else if(active)setRun(`SET your ${active.L}-min rallies`,clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+  else if(next){const toW=(next.ws-now)/1000;
+    if(toW<=60)setRun(`GET READY — ${next.L}-min set`,clk(toW),"window opens at 0:00",true);
+    else setRun(`Standing by · next set: ${next.L}-min`,clk(toW),"window opens when this hits 1:00",false);}
+  else setRun("Rallies away — waiting on impact","","",false);
   $("runWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
     const t=act?clk((w.we-now)/1000):(now<w.ws?clk((w.ws-now)/1000)+" to open":"set");
     return `<div class="run-win ${act?'active':''} ${done?'done':''}"><span>${w.L}-min rally</span><span>${done?'✓ set':t}</span></div>`;}).join("");
+}
+function tickShock(r){
+  const now=Date.now(),toImp=(r.baseImpact-now)/1000,wl=["Primary","Wave 1","Wave 2"];
+  $("runClock").textContent=toImp>0?clkH(toImp)+" to primary":"WAVES INBOUND";
+  let active=null,next=null;
+  for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
+  if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
+  if(now>=r.baseImpact){const since=(now-r.baseImpact)/1000;
+    if(since<30)setRun("PRIMARY IMPACT",clk(30-since),"Wave 1 lands in…",true);
+    else if(since<45)setRun("WAVE 1 IN",clk(45-since),"Wave 2 lands in…",true);
+    else{setRun("WAVE 2 IN — clear them","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);}
+  }else if(active)setRun("SET — "+wl[active.wave]+" · "+active.L+"-min",clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+  else if(next){const toW=(next.ws-now)/1000;
+    if(toW<=60)setRun("GET READY — "+wl[next.wave]+" "+next.L+"-min",clk(toW),"window opens at 0:00",true);
+    else setRun("Standing by · next: "+wl[next.wave]+" "+next.L+"-min",clk(toW),"window opens when this hits 1:00",false);}
+  else setRun("Waves away — impact incoming","","",false);
+  $("runWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
+    const t=act?clk((w.we-now)/1000):(now<w.ws?clk((w.ws-now)/1000)+" to open":"set");
+    return `<div class="run-win ${act?'active':''} ${done?'done':''}"><span>${wl[w.wave]} · ${w.L}-min</span><span>${done?'✓ set':t}</span></div>`;}).join("");
 }
 
 /* ── STATS ── */
