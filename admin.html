@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VIPER — Admin</title>
+<style>
+  :root{
+    --bg:#0d1014; --panel:#151b22; --line:#27303b; --text:#e8eef4; --muted:#8a97a6; --muted2:#5f6b78;
+    --brand:#a3e635; --bad:#ff5d63; --warn:#f5a524;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace; --disp:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--disp)}
+  .wrap{max-width:720px;margin:0 auto;padding:24px 18px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .mark{width:32px;height:32px;border:2px solid var(--brand);border-radius:8px;display:grid;place-items:center;color:var(--brand);font-weight:900}
+  h1{font-size:16px;letter-spacing:.2em;text-transform:uppercase;margin:0}
+  h1 span{color:var(--muted2);letter-spacing:.1em;font-weight:600}
+  .hspace{flex:1}
+  .ghost{background:transparent;border:1px solid var(--line);color:var(--text);padding:7px 13px;border-radius:8px;font:inherit;font-size:12px;cursor:pointer}
+  .ghost:hover{border-color:var(--muted2)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:18px}
+  input[type=text],input[type=email],input[type=password]{width:100%;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:11px 13px;border-radius:9px;font:inherit;font-size:14px}
+  input:focus{outline:none;border-color:var(--brand)}
+  label{font-size:12px;color:var(--muted);display:block;margin:0 0 6px}
+  .field{margin-bottom:14px}
+  .btn{background:var(--brand);color:#0d1014;border:none;padding:11px 18px;border-radius:9px;font:inherit;font-weight:700;cursor:pointer;width:100%}
+  .btn:hover{filter:brightness(1.08)}
+  .err{color:var(--bad);font-size:12.5px;margin-top:10px;min-height:16px}
+  .addrow{display:flex;gap:10px}
+  .addrow input{flex:1}
+  .addrow button{flex:none;background:var(--brand);color:#0d1014;border:none;padding:0 18px;border-radius:9px;font:inherit;font-weight:700;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted2);padding:8px 8px;border-bottom:1px solid var(--line)}
+  td{padding:10px 8px;border-bottom:1px solid #1a222b;vertical-align:middle}
+  .tok{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  .badge{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;font-weight:700}
+  .badge.on{background:rgba(163,230,53,.15);color:var(--brand)}
+  .badge.off{background:rgba(255,93,99,.15);color:var(--bad)}
+  .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .actions button{background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 10px;border-radius:7px;font:inherit;font-size:11.5px;cursor:pointer}
+  .actions button:hover{border-color:var(--muted2);color:var(--text)}
+  .actions button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .empty{color:var(--muted2);font-size:13px;text-align:center;padding:20px 0}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--brand);color:var(--text);padding:10px 18px;border-radius:9px;font-size:13px;display:none}
+  .who{font-size:12.5px;color:var(--muted)}
+  #gateCard,#panel{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="mark">V</div><h1>VIPER <span>· admin</span></h1><div class="hspace"></div><span class="who" id="who"></span><button class="ghost" id="logout" style="display:none">Sign out</button></header>
+
+  <div class="card" id="gateCard">
+    <div class="field"><label>Admin email</label><input type="email" id="email" autocomplete="username" /></div>
+    <div class="field"><label>Password</label><input type="password" id="pw" autocomplete="current-password" /></div>
+    <button class="btn" id="loginBtn">Sign in</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+
+  <div id="panel">
+    <div class="card">
+      <label>Give someone a new token</label>
+      <div class="addrow">
+        <input type="text" id="newName" placeholder="Name (e.g. Asura)" />
+        <button id="addBtn">Generate</button>
+      </div>
+      <div class="err" id="addErr"></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Name</th><th>Token</th><th>Status</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">No tokens yet — add the first one above.</div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module" src="viper-auth.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let tokens=[];
+
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2200);}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function fmtDate(ts){ if(!ts) return "—"; try{ const d=ts.toDate?ts.toDate():new Date(ts); return d.toLocaleDateString(); }catch(e){return "—";} }
+
+function renderRows(){
+  $("rows").innerHTML=tokens.map(t=>{
+    const active=t.active!==false;
+    return `<tr>
+      <td>${esc(t.name||"Unnamed")}</td>
+      <td class="tok">${esc(t.id)}</td>
+      <td><span class="badge ${active?'on':'off'}">${active?'active':'revoked'}</span></td>
+      <td><div class="actions">
+        <button data-copy="${esc(t.id)}">Copy</button>
+        <button data-toggle="${esc(t.id)}" data-cur="${active}">${active?'Revoke':'Reactivate'}</button>
+        <button data-reset="${esc(t.id)}" data-name="${esc(t.name||'')}">Reset</button>
+        <button class="danger" data-del="${esc(t.id)}">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+  $("empty").style.display=tokens.length?"none":"block";
+}
+async function refresh(){
+  try{ tokens=await window.viperAuth.listTokens(); renderRows(); }
+  catch(e){ console.error(e); toast("Couldn't load tokens — check Firestore rules."); }
+}
+
+function showGate(){ $("gateCard").style.display="block"; $("panel").style.display="none"; $("logout").style.display="none"; $("who").textContent=""; }
+function showPanel(email){ $("gateCard").style.display="none"; $("panel").style.display="block"; $("logout").style.display="inline-block"; $("who").textContent=email; refresh(); }
+
+window.addEventListener("viperAuthReady", ()=>{
+  window.viperAuth.onAdmin((isAdmin,user)=>{
+    if(isAdmin) showPanel(user.email);
+    else{
+      showGate();
+      if(user) $("loginErr").textContent="Signed in, but this isn't the admin account configured in firebase-config.js.";
+    }
+  });
+});
+
+$("loginBtn").onclick=async()=>{
+  $("loginErr").textContent="";
+  try{ await window.viperAuth.adminLogin($("email").value.trim(), $("pw").value); }
+  catch(e){ $("loginErr").textContent="Sign-in failed — check the email and password."; }
+};
+$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")$("loginBtn").click();});
+$("logout").onclick=()=>window.viperAuth.adminLogout();
+
+$("addBtn").onclick=async()=>{
+  const name=$("newName").value.trim();
+  $("addErr").textContent="";
+  if(!name){ $("addErr").textContent="Give them a name first."; return; }
+  $("addBtn").disabled=true;
+  try{
+    const tok=await window.viperAuth.createToken(name);
+    $("newName").value="";
+    await refresh();
+    navigator.clipboard?.writeText(tok).catch(()=>{});
+    toast(`Token for ${name} copied: ${tok}`);
+  }catch(e){ console.error(e); $("addErr").textContent="Couldn't create the token — check Firestore rules."; }
+  finally{ $("addBtn").disabled=false; }
+};
+$("newName").addEventListener("keydown",e=>{if(e.key==="Enter")$("addBtn").click();});
+
+$("rows").addEventListener("click",async e=>{
+  const cp=e.target.closest("[data-copy]"), tg=e.target.closest("[data-toggle]"),
+        rs=e.target.closest("[data-reset]"), dl=e.target.closest("[data-del]");
+  if(cp){ navigator.clipboard?.writeText(cp.dataset.copy).then(()=>toast("Copied "+cp.dataset.copy)); }
+  else if(tg){
+    const cur=tg.dataset.cur==="true";
+    await window.viperAuth.setActive(tg.dataset.toggle, !cur);
+    toast(cur?"Revoked":"Reactivated"); refresh();
+  }else if(rs){
+    if(!confirm("Reset this token? The old one stops working immediately and a new one is generated.")) return;
+    const fresh=await window.viperAuth.resetToken(rs.dataset.reset, rs.dataset.name);
+    navigator.clipboard?.writeText(fresh).catch(()=>{});
+    toast("New token copied: "+fresh); refresh();
+  }else if(dl){
+    if(!confirm("Delete this token entirely? This can't be undone.")) return;
+    await window.viperAuth.deleteToken(dl.dataset.del);
+    toast("Deleted"); refresh();
+  }
+});
+</script>
+</body>
+</html>

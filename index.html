@@ -285,8 +285,8 @@
   <div class="gate-card">
     <div class="mark" style="margin:0 auto 16px">V</div>
     <h2>VIPER access</h2>
-    <p>This tool is for TOXIC members only. Enter the access code your war lead shared with you.</p>
-    <input type="text" id="gateInput" placeholder="Access code" autocomplete="off" autocapitalize="off" />
+    <p id="gateLead">This tool is for TOXIC members only. Enter the access token your war lead gave you.</p>
+    <input type="text" id="gateInput" placeholder="Access token" autocomplete="off" autocapitalize="off" />
     <button class="btn" id="gateBtn">Enter</button>
     <div class="gate-err" id="gateErr"></div>
   </div>
@@ -301,9 +301,10 @@
     <div class="hspace"></div>
     <div class="src" id="src">
       <span class="dot"></span><span id="srcLabel">live</span>
+      <span id="whoami" style="color:var(--muted2)"></span>
       <button class="ghost" id="reload">Reload</button>
       <button class="ghost" id="change">Change sheet</button>
-      <button class="ghost" id="lockBtn" title="Require the access code again on this device">Lock</button>
+      <button class="ghost" id="lockBtn" title="Require your access token again on this device">Lock</button>
     </div>
   </header>
 
@@ -387,6 +388,7 @@
   </footer>
 </div>
 
+<script type="module" src="viper-auth.js"></script>
 <script>
 const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally",
@@ -400,28 +402,52 @@ const S = {
 const $=id=>document.getElementById(id);
 
 /* ── ACCESS GATE ──────────────────────────────────────────────────────────
-   Shared-passcode gate. This keeps casual / unauthorized visitors out of a
-   link they weren't given — it is NOT real per-person login and is not
-   secure against someone who opens dev tools or views page source (the
-   code below is visible to anyone with the file). Distribute the code only
-   to people you trust, and rotate it (edit ACCESS_CODE, re-upload) if it
-   leaks or someone should lose access. For real individual accounts and
-   for monetization, this needs a backend (e.g. Firebase Auth) — ask me to
-   set that up when you're ready.                                          */
-const ACCESS_CODE = "viper2026"; // ← change this, then re-upload index.html
-function showApp(){ $("gate").style.display="none"; $("mainWrap").style.display="block"; }
-function showGate(){ $("mainWrap").style.display="none"; $("gate").style.display="flex";
-  const gi=$("gateInput"); if(gi){gi.value="";} const ge=$("gateErr"); if(ge)ge.textContent="";
+   Real per-person tokens, checked against Firestore via viper-auth.js.
+   Each person's token is validated on every load (not just trusted once),
+   so revoking someone in the admin panel takes effect immediately — they
+   get bounced back to the gate next time they open or reload the page.   */
+function showApp(name){
+  $("gate").style.display="none"; $("mainWrap").style.display="block";
+  $("whoami").textContent = name ? ("· "+name) : "";
+}
+function showGate(msg){
+  $("mainWrap").style.display="none"; $("gate").style.display="flex";
+  const gi=$("gateInput"); if(gi) gi.value="";
+  $("gateErr").textContent = msg || "";
   setTimeout(()=>{ if(gi) gi.focus(); },50);
 }
-if(localStorage.getItem("viper.unlocked")==="true") showApp(); else showGate();
-$("gateBtn").onclick=()=>{
-  const v=$("gateInput").value.trim();
-  if(v && v.toLowerCase()===ACCESS_CODE.toLowerCase()){ localStorage.setItem("viper.unlocked","true"); showApp(); }
-  else { $("gateErr").textContent="Wrong code — check with your war lead."; }
+function gateChecking(){
+  $("mainWrap").style.display="none"; $("gate").style.display="flex";
+  $("gateLead").textContent="Checking your access…"; $("gateBtn").style.display="none";
+  $("gateInput").style.display="none"; $("gateErr").textContent="";
+}
+function gateReady(){ $("gateLead").textContent="This tool is for TOXIC members only. Enter the access token your war lead gave you.";
+  $("gateBtn").style.display="block"; $("gateInput").style.display="block"; }
+function initGate(){
+  const saved=localStorage.getItem("viper.token");
+  if(!saved){ gateReady(); showGate(); return; }
+  gateChecking();
+  window.viperAuth.checkToken(saved).then(r=>{
+    gateReady();
+    if(r.ok){ localStorage.setItem("viper.who", r.name||""); showApp(r.name); }
+    else{ localStorage.removeItem("viper.token"); localStorage.removeItem("viper.who");
+      showGate(r.revoked?"That token was revoked — ask your war lead for a new one.":"Couldn't verify your access — try again.");
+    }
+  }).catch(()=>{ gateReady(); showGate("Couldn't reach the access service — check your connection and reload."); });
+}
+window.addEventListener("viperAuthReady", initGate);
+gateChecking(); // show something immediately instead of a blank page while Firebase loads
+setTimeout(()=>{ if(!window.viperAuth){ gateReady(); showGate("Couldn't reach the access service — check your connection and reload."); } }, 8000);
+$("gateBtn").onclick=async()=>{
+  const v=$("gateInput").value.trim(); if(!v) return;
+  $("gateBtn").disabled=true; $("gateErr").textContent="";
+  const r=await window.viperAuth.checkToken(v);
+  $("gateBtn").disabled=false;
+  if(r.ok){ localStorage.setItem("viper.token",v); localStorage.setItem("viper.who",r.name||""); showApp(r.name); }
+  else{ $("gateErr").textContent = r.error?"Couldn't reach the access service — try again.":"That token isn't valid — check with your war lead."; }
 };
 $("gateInput").addEventListener("keydown",e=>{ if(e.key==="Enter") $("gateBtn").click(); });
-$("lockBtn").onclick=()=>{ localStorage.removeItem("viper.unlocked"); showGate(); };
+$("lockBtn").onclick=()=>{ localStorage.removeItem("viper.token"); localStorage.removeItem("viper.who"); gateReady(); showGate(); };
 /* ── end access gate ── */
 
 const norm=v=>String(v==null?"":v).trim().replace(/\s+/g," ");
