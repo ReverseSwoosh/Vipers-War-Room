@@ -161,6 +161,66 @@
   .rolechips{padding:16px;display:flex;flex-wrap:wrap;gap:8px;max-height:62vh;overflow:auto}
   .nchip{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text)}
   .rolenote{color:var(--muted2);font-size:12.5px}
+  /* setter controls */
+  .prow{flex-direction:column;align-items:stretch;gap:9px}
+  .prowtop{display:flex;align-items:center;gap:12px}
+  .setterctl{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .setterctl .mlbl{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+  .setterctl input[type=number]{width:50px;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:5px 7px;border-radius:7px;font:inherit;font-family:var(--mono);font-size:12px}
+  .setterctl input[type=checkbox]{accent-color:var(--brand);width:15px;height:15px}
+  /* rally cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .rcard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;cursor:pointer;transition:.15s;color:var(--text);font:inherit;position:relative;overflow:hidden}
+  .rcard:hover{border-color:var(--muted2);transform:translateY(-1px)}
+  .rcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+  .rcard.machine::before{background:var(--machine)}.rcard.rolling::before{background:#7aa2ff}.rcard.waterfall::before{background:var(--waterfall)}.rcard.bomb::before{background:var(--bomb)}.rcard.shock::before{background:#c77dff}
+  .rcard.rec{border-color:var(--brand)}
+  .rc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
+  .rc-name{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
+  .rcard.machine .rc-name{color:var(--machine)}.rcard.rolling .rc-name{color:#7aa2ff}.rcard.waterfall .rc-name{color:var(--waterfall)}.rcard.bomb .rc-name{color:var(--bomb)}.rcard.shock .rc-name{color:#c77dff}
+  .rc-badge{font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--brand);color:#0d1014;padding:3px 7px;border-radius:999px;font-weight:700;white-space:nowrap}
+  .rc-sum{font-size:12.5px;color:var(--muted);line-height:1.5;min-height:36px}
+  .rc-go{font-size:12px;color:var(--muted2);margin-top:10px;display:inline-block}
+  .rcard:hover .rc-go{color:var(--brand)}
+  /* modal */
+  .modal{display:none;position:fixed;inset:0;background:rgba(5,8,11,.74);z-index:50;padding:24px;overflow:auto}
+  .modal.open{display:flex;align-items:flex-start;justify-content:center}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:760px;width:100%;margin:auto}
+  .sheet-h{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);border-radius:16px 16px 0 0}
+  .sheet-h h3{margin:0;font-size:16px;letter-spacing:.05em}
+  .sheet-h button{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+  .sheet-h button:hover{color:var(--text)}
+  .sheet-b{padding:22px}
+  .sec{margin-bottom:22px}.sec:last-child{margin-bottom:0}
+  .sec h4{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)}
+  .sec p,.sec li{font-size:13.5px;color:var(--muted);line-height:1.6}
+  .sec ol,.sec ul{margin:0;padding-left:18px}.sec li{margin-bottom:5px}
+  .sec b{color:var(--text)}
+  .kv{display:flex;gap:18px;flex-wrap:wrap;margin:4px 0 0}
+  .kv .k{font-size:12px;color:var(--muted2)}.kv .v{font-family:var(--mono);color:var(--text);font-weight:600}
+  .sched{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .sched .sr{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #1a222b;font-size:13px}
+  .sched .sr:last-child{border-bottom:none}
+  .sched .si{font-family:var(--mono);font-size:11px;color:var(--muted2);width:24px;text-align:right}
+  .sched .snm{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sched .st{font-family:var(--mono);font-size:12px;color:var(--brand);white-space:nowrap}
+  .warnbox{background:rgba(245,165,36,.1);border:1px solid var(--bomb);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--bomb);line-height:1.5}
+  /* runner */
+  .runner{background:#0c1116;border:1px solid var(--line);border-radius:12px;padding:18px;text-align:center;margin-top:12px}
+  .run-clock{font-family:var(--mono);font-size:40px;font-weight:800;line-height:1}
+  .run-status{font-size:14px;margin:10px 0 4px;min-height:20px;color:var(--text);font-weight:600}
+  .run-big{font-family:var(--mono);font-size:60px;font-weight:900;color:var(--bomb);line-height:1.1;min-height:0}
+  .run-sub{font-size:12px;color:var(--muted);min-height:16px}
+  .run-windows{display:flex;flex-direction:column;gap:6px;margin-top:14px;text-align:left}
+  .run-win{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;color:var(--muted)}
+  .run-win.active{border-color:var(--bomb);color:var(--text);background:rgba(245,165,36,.08)}
+  .run-win.done{opacity:.45}
+  .stagepick{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+  .stagepick label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);border:1px solid var(--line);padding:6px 11px;border-radius:8px;cursor:pointer}
+  .stagepick input{accent-color:var(--brand)}
+  .runbtns{display:flex;gap:10px;justify-content:center;margin-top:14px}
+  .alert{animation:flash .7s ease-in-out infinite}
+  @keyframes flash{0%,100%{color:var(--text)}50%{color:var(--bomb)}}
 
   footer{margin-top:26px;padding:16px 4px;color:var(--muted2);font-size:11.5px;line-height:1.6}
 </style>
@@ -229,17 +289,7 @@
           <div><label>Marches per keep</label><input type="number" id="sMarch" value="5"></div>
         </div>
       </details>
-      <div class="plans">
-        <div class="card plan m"><div class="bar"></div>
-          <div class="card-h"><span class="tag">Machine Gun</span><span class="count" id="mCount">0</span></div>
-          <div class="setlist" id="mList"></div></div>
-        <div class="card plan w"><div class="bar"></div>
-          <div class="card-h"><span class="tag">Waterfall</span><span class="count" id="wCount">0</span></div>
-          <div class="setlist" id="wList"></div></div>
-        <div class="card plan b"><div class="bar"></div>
-          <div class="card-h"><span class="tag">Bomb</span><span class="count" id="bCount">0</span></div>
-          <div class="setlist" id="bList"></div><div class="math" id="bMath"></div></div>
-      </div>
+      <div class="cards" id="cards"></div>
     </section>
   </main>
 
@@ -259,6 +309,11 @@
     </section>
   </main>
 
+  <div class="modal" id="modal"><div class="sheet">
+    <div class="sheet-h"><h3 id="mTitle">Plan</h3><button id="mClose" title="Close">✕</button></div>
+    <div class="sheet-b" id="mBody"></div>
+  </div></div>
+
   <footer>
     Machine-gun order uses ATTACK <b style="color:var(--muted)">OVERALL</b> as a stand-in until a
     Damage-Dealt-Per-March column exists. Stats are read live from your sheet each time you open or reload a tab;
@@ -270,7 +325,7 @@
 const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally",
   players:[], statusByName:{},
-  settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"",
+  settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"", runner:null,
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
     tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
 };
@@ -339,14 +394,15 @@ function buildPlayers(stats,atk){
     const cap=num(r[iR]),march=num(r[iM]),ov=overall[nm.toUpperCase()]||0;
     if(!cap&&!march&&!ov)continue;
     const prev=S.statusByName[nm.toUpperCase()]||{};
-    out.push({name:nm,rallyCap:cap,march,overall:ov,online:!!prev.online,leaving:!!prev.leaving});
+    out.push({name:nm,rallyCap:cap,march,overall:ov,online:!!prev.online,leaving:!!prev.leaving,
+      marches:prev.marches||S.settings.marches||5,multi:!!prev.multi,multiCount:prev.multiCount||2});
   }
   out.sort((a,b)=>a.name.localeCompare(b.name));S.players=out;
 }
 
 function loadDemo(){
   const h=["KIEZERHARPSKY","ASURA","INSOMNIAC","GEMINI","ART","SCAR","STORMANDGUNZ","FACEDOWNASHUP","M R BLUE","NIGHTOWL","VANTABLACK","REIGN","KAIJU","ZEPHYR","ONYX","VESPER","HALEFIRE","CINDER","MARROW","TEMPEST","GRIMWALD","SABLE","RONIN","WIDOW","HEX","FALKOR"];
-  S.players=h.map((x,i)=>({name:x,rallyCap:Math.round(2.7e6-i*32000+(Math.random()-.5)*180000),march:Math.round(250000+Math.random()*110000),overall:Math.round(180000-i*4000+(Math.random()-.5)*40000),online:false,leaving:false}));
+  S.players=h.map((x,i)=>({name:x,rallyCap:Math.round(2.7e6-i*32000+(Math.random()-.5)*180000),march:Math.round(250000+Math.random()*110000),overall:Math.round(180000-i*4000+(Math.random()-.5)*40000),online:false,leaving:false,marches:5,multi:false,multiCount:2}));
   S.statusByName={};S.isDemo=true;S.sheetId=null;enterApp();$("srcLabel").textContent="demo data";setStatus("","ok");
 }
 
@@ -359,33 +415,196 @@ function recommend(online,heavy){
   if(hh>=s.wf)return{label:"Waterfall",color:"var(--waterfall)",glow:"var(--waterfall)",why:`${hh} heavy setters (cap ≥ ${Mfmt(s.heavy)}) — strong core to anchor the 10-minute rallies and roll the rest in.`};
   return{label:"Machine Gun",color:"var(--machine)",glow:"var(--machine)",why:`Lean crew (${n} online) — set fast, no refresh window, then everyone fills down. Order is highest damage-per-march first.`};
 }
-function renderRally(){
+function renderRally(){ renderRoster(); renderPlans(); }
+function totals(){
+  const online=S.players.filter(p=>p.online);
+  const heavy=online.filter(p=>p.rallyCap>=S.settings.heavy);
+  const marches=online.reduce((s,p)=>s+(p.marches||0),0);
+  return {online,heavy,marches};
+}
+function renderRoster(){
   const ps=S.players,q=S.search.toLowerCase();
-  const online=ps.filter(p=>p.online),heavy=online.filter(p=>p.rallyCap>=S.settings.heavy),marches=online.length*S.settings.marches;
+  const {online,heavy,marches}=totals();
   $("cOnline").textContent=online.length;$("cHeavy").textContent=heavy.length;$("cMarch").textContent=comma(marches);
   const shown=q?ps.filter(p=>p.name.toLowerCase().includes(q)):ps;
   $("list").innerHTML=shown.length?shown.map(p=>{const idx=ps.indexOf(p);
-    return `<div class="prow ${p.online?'on':''}"><div class="pinfo">
-      <div class="pname">${esc(p.name)}${p.leaving?'<span class="leave">⚠ leaving</span>':''}</div>
-      <div class="psub">${comma(p.rallyCap)} cap · ${comma(p.march)} march</div></div>
-      <div class="toggles">
-        <button class="tg ${p.online?'on':''}" data-on="${idx}">${p.online?'Online':'Set online'}</button>
-        <button class="tg leave ${p.leaving?'on':''}" data-lv="${idx}" title="Mark leaving soon">⏳</button>
-      </div></div>`;}).join(""):`<div class="empty">No keep matches “${esc(S.search)}”.</div>`;
+    const ctl=p.online?`<div class="setterctl">
+        <label class="mlbl">Marches <input type="number" min="1" max="7" data-marches="${idx}" value="${p.marches}"></label>
+        <label class="mlbl"><input type="checkbox" data-multi="${idx}" ${p.multi?"checked":""}> Multi-set</label>
+        ${p.multi?`<input type="number" min="1" max="7" data-mc="${idx}" value="${p.multiCount}" title="marches per multi-set">`:""}
+      </div>`:"";
+    return `<div class="prow ${p.online?'on':''}">
+      <div class="prowtop">
+        <div class="pinfo"><div class="pname">${esc(p.name)}${p.leaving?'<span class="leave">⚠ leaving</span>':''}</div>
+        <div class="psub">${comma(p.rallyCap)} cap · ${comma(p.march)} march</div></div>
+        <div class="toggles">
+          <button class="tg ${p.online?'on':''}" data-on="${idx}">${p.online?'Online':'Set online'}</button>
+          <button class="tg leave ${p.leaving?'on':''}" data-lv="${idx}" title="Mark leaving soon">⏳</button>
+        </div>
+      </div>${ctl}</div>`;}).join(""):`<div class="empty">No keep matches “${esc(S.search)}”.</div>`;
+}
+const PLAN_META={machine:{name:"Machine Gun",cls:"machine"},rolling:{name:"Rolling",cls:"rolling"},waterfall:{name:"Waterfall",cls:"waterfall"},bomb:{name:"Bomb",cls:"bomb"},shock:{name:"Shockwave",cls:"shock"}};
+function renderPlans(){
+  const {online,heavy,marches}=totals();
   const rec=recommend(online,heavy);
   $("vtype").textContent=rec.label;$("vtype").style.color=rec.color;$("vwhy").textContent=rec.why;
   $("glow").style.background=rec.glow;$("verdict").style.borderColor=rec.glow==="transparent"?"var(--line)":rec.color+"66";
   $("vmeta").innerHTML=online.length?`<span>Online <b>${online.length}</b></span><span>Heavy <b>${heavy.length}</b></span><span>Marches <b>${comma(marches)}</b></span>`:"";
-  const byOv=[...online].sort((a,b)=>b.overall-a.overall),byCap=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
-  $("mList").innerHTML=setRows(byOv,p=>Mfmt(p.overall)+" dmg/m");
-  $("wList").innerHTML=setRows(byCap,p=>comma(p.rallyCap));
-  $("bList").innerHTML=setRows(byCap,p=>comma(p.rallyCap));
-  $("mCount").textContent=$("wCount").textContent=$("bCount").textContent=online.length;
-  if(online.length){const aC=online.reduce((s,p)=>s+p.rallyCap,0)/online.length,aM=online.reduce((s,p)=>s+p.march,0)/online.length||1,pr=aC/aM,fill=marches/pr,ok=fill>=100;
-    $("bMath").innerHTML=`Avg cap <b>${comma(aC)}</b> · avg march <b>${comma(aM)}</b><br>≈ <b>${pr.toFixed(1)}</b> marches per rally<br>Fillable rallies ≈ <b class="${ok?'good':'bad'}">${Math.floor(fill)}</b> ${ok?'— clears the bomb bar':'— short of 100'}`;}
-  else $("bMath").innerHTML="";
+  const N=online.length;
+  const recKey={"Machine Gun":"machine","Waterfall":"waterfall","Bomb":"bomb"}[rec.label]||"";
+  const x=N>=2?Math.round(300/N):0;
+  const bombMarches=online.reduce((s,p)=>s+Math.min(2,p.marches),0);
+  const sums={
+    machine:`${N} setter${N!==1?"s":""} · set order by damage-per-march, then fill down`,
+    rolling: N>=2?`${N} setters · non-stop 5-min loop, a hit every ~${x}s`:`Needs 2+ setters`,
+    waterfall:`${N} setters · ${bombMarches}-march 10-min bomb + timed rollers`,
+    bomb:`≈ ${comma(marches)} rallies · staged so all hit the same second`,
+    shock:`${N} setters · 3 waves to bait the refresh`,
+  };
+  $("cards").innerHTML=Object.keys(PLAN_META).map(k=>{const m=PLAN_META[k];
+    return `<button class="rcard ${m.cls} ${recKey===k?'rec':''}" data-plan="${k}">
+      <div class="rc-top"><span class="rc-name">${m.name}</span>${recKey===k?'<span class="rc-badge">Recommended</span>':''}</div>
+      <div class="rc-sum">${sums[k]}</div><span class="rc-go">View plan →</span></button>`;}).join("");
 }
-function setRows(list,vf){return list.length?list.map((p,i)=>`<div class="set"><span class="n">${i+1}</span><span class="nm">${esc(p.name)}${p.leaving?'<span class="lv">⚠</span>':''}</span><span class="v">${vf(p)}</span></div>`).join(""):`<div class="pempty">No one checked in yet.</div>`;}
+/* ── plan details ── */
+function clk(sec){sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),s=sec%60;return m+":"+String(s).padStart(2,"0");}
+function clkH(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return (h?h+":"+String(m).padStart(2,"0"):String(m))+":"+String(s).padStart(2,"0");}
+function schedHTML(order,vf){return `<div class="sched">`+order.map((p,i)=>`<div class="sr"><span class="si">${i+1}</span><span class="snm">${esc(p.name)}</span><span class="st">${vf(p,i)}</span></div>`).join("")+`</div>`;}
+function openPlan(key){
+  const {online}=totals();const m=PLAN_META[key];$("mTitle").textContent=m.name+" — plan";
+  let html;
+  if(!online.length)html=`<div class="sec"><p>No one is checked in yet. Set some keeps online on the roster to generate a plan.</p></div>`;
+  else if(key==="machine")html=buildMachine(online);
+  else if(key==="rolling")html=buildRolling(online);
+  else if(key==="waterfall")html=buildWaterfall(online);
+  else if(key==="bomb")html=buildBomb(online);
+  else html=buildShock(online);
+  $("mBody").innerHTML=html;$("modal").classList.add("open");
+}
+function closePlan(){$("modal").classList.remove("open");stopRunner();}
+function buildMachine(online){
+  const order=[...online].sort((a,b)=>b.overall-a.overall);
+  return `<div class="sec"><h4>How it runs</h4><ol>
+    <li>Setter 1 fires <b>all</b> their marches as fast as possible, then waits 5–10s.</li>
+    <li>Setter 2 does the same, then setter 3, on down the order.</li>
+    <li>The instant marches land, <b>everyone</b> — setters too — fills down immediately.</li></ol>
+    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage-per-march first</b>.</p></div>
+    <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>Mfmt(p.overall)+" dmg/m")}</div>`;
+}
+function buildRolling(online){
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
+  if(N<2)return `<div class="sec"><div class="warnbox">Rolling needs at least 2 setters.</div></div>`;
+  const x=Math.round(300/N);const totalM=online.reduce((s,p)=>s+p.marches,0);
+  return `<div class="sec"><h4>The maths</h4><div class="kv">
+    <span><span class="k">Setters </span><span class="v">${N}</span></span>
+    <span><span class="k">Rally length </span><span class="v">5:00</span></span>
+    <span><span class="k">Gap between setters </span><span class="v">${x}s</span></span>
+    <span><span class="k">Rallies / cycle </span><span class="v">${comma(totalM)}</span></span></div>
+    <p>One full rotation is ${N} × ${x}s = <b>${clk(N*x)}</b> — so by the time it loops back to setter 1, their 5-min marches are home. The roll never stops.</p></div>
+    <div class="sec"><h4>How it runs</h4><ol>
+    <li>5-minute rallies only — each setter fires <b>all</b> their marches on their turn.</li>
+    <li>Wait <b>${x}s</b> between setters, so a rally lands roughly every ${x}s.</li>
+    <li>After the last setter, setter 1's marches are back — they go again. Loop forever.</li></ol></div>
+    <div class="sec"><h4>Order &amp; timing (first cycle)</h4>${schedHTML(order,(p,i)=>"sets +"+clk(i*x))}</div>`;
+}
+function buildWaterfall(online){
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
+  const bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
+  const rollers=order.filter(p=>p.marches>2);const Nr=rollers.length;
+  const x=Nr>=2?Math.round(290/(Nr-1)):0;
+  const warn=N<15?`<div class="sec"><div class="warnbox">Waterfall is built for 15+ setters — you have ${N}. It'll still run, just a smaller bomb.</div></div>`:"";
+  const rollSched=Nr>=2?schedHTML(rollers,(p,i)=>"set +"+clk(i*x)+" → hits +"+clk(i*x+300)):`<p>Not enough spare marches to roll — need 2+ setters with more than 2 marches each.</p>`;
+  return `${warn}<div class="sec"><h4>The maths</h4><div class="kv">
+    <span><span class="k">Bomb </span><span class="v">${bombMarches} marches @ 10:00</span></span>
+    <span><span class="k">Rollers </span><span class="v">${Nr} setters</span></span>
+    <span><span class="k">Roller gap </span><span class="v">${x}s</span></span></div></div>
+    <div class="sec"><h4>How it runs</h4><ol>
+    <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
+    <li><b>Roll the rest:</b> with their remaining marches, setters roll 5-min rallies in order, <b>${x}s apart</b>.</li>
+    <li>Timed so the <b>last roller lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
+    <div class="sec"><h4>Roller order &amp; timing</h4>${rollSched}</div>`;
+}
+function buildBomb(online){
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const marches=online.reduce((s,p)=>s+p.marches,0);const multis=online.filter(p=>p.multi).length;
+  return `<div class="sec"><h4>The maths</h4><div class="kv">
+    <span><span class="k">Setters </span><span class="v">${order.length}</span></span>
+    <span><span class="k">Total rallies </span><span class="v">${comma(marches)}</span></span>
+    <span><span class="k">Multi-setters </span><span class="v">${multis}</span></span></div></div>
+    <div class="sec"><h4>How it works</h4>
+    <p>Every march must hit the SOP on the <b>same second</b>. You stagger rally <b>lengths</b> so they all land together — a 60-min set at the 60-min mark, a 30-min at the 30-min mark, a 10-min at the 10-min mark — all arriving at impact.</p>
+    <p>No need to enter anyone's march time: at each mark there's a <b>60-second window</b>, and each player just launches when the countdown shows <b>their own march-time</b> in seconds. Longer march times launch earlier; everything converges.</p></div>
+    <div class="sec"><h4>Run the bomb</h4>
+    <p>Pick the rally lengths you're using, then start. VIPER alerts 60s before each window and counts every one down to impact.</p>
+    <div class="stagepick" id="stagePick">${[60,30,10,5].map(L=>`<label><input type="checkbox" data-stage="${L}" ${[60,30,10].includes(L)?"checked":""}> ${L}-min</label>`).join("")}</div>
+    ${runnerShell("bomb")}</div>`;
+}
+function buildShock(online){
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const totalM=online.reduce((s,p)=>s+p.marches,0);
+  const props=[0.58,0.25,0.17];const cum=[props[0],props[0]+props[1]].map(f=>f*totalM);
+  const waves=[[],[],[]];let acc=0;
+  for(const p of order){let wi=0;if(acc>=cum[1])wi=2;else if(acc>=cum[0])wi=1;waves[wi].push(p);acc+=p.marches;}
+  const wm=waves.map(w=>w.reduce((s,p)=>s+p.marches,0));
+  const labels=["Primary bomb (lands first)","Wave 1 — lands +30s","Wave 2 — lands +45s"];
+  const wavesHTML=waves.map((w,i)=>w.length?`<div class="sec"><h4>${labels[i]} · ${wm[i]} rallies</h4>${schedHTML(w,p=>comma(p.rallyCap))}</div>`:"").join("");
+  return `<div class="sec"><h4>The play</h4>
+    <p>Set exactly like a bomb, but split into waves with deliberate arrival gaps. The <b>primary</b> lands; reigners think the bomb's hit and start refreshing — dumping troops. Then <b>wave 1</b> (+30s) and <b>wave 2</b> (+15s after that) crash in and clear them.</p>
+    <div class="kv"><span><span class="k">Total rallies </span><span class="v">${comma(totalM)}</span></span>
+    <span><span class="k">Waves </span><span class="v">${waves.filter(w=>w.length).length}</span></span></div></div>
+    ${wavesHTML}
+    <div class="sec"><h4>How it runs</h4><ol>
+    <li>Build it like a bomb (stagger rally lengths so each wave's marches land together).</li>
+    <li>In each window: <b>primary</b> launches at their march-time, <b>wave 1</b> launches 30s later, <b>wave 2</b> 15s after wave 1.</li>
+    <li>Arrivals: primary, then +30s wave 1, then +45s wave 2.</li></ol></div>
+    <div class="sec"><h4>Run the shockwave</h4>
+    <div class="stagepick" id="stagePick">${[60,30,10,5].map(L=>`<label><input type="checkbox" data-stage="${L}" ${[10].includes(L)?"checked":""}> ${L}-min</label>`).join("")}</div>
+    ${runnerShell("shock")}</div>`;
+}
+function runnerShell(type){
+  return `<div class="runner" id="runner" data-type="${type}">
+    <div class="run-clock" id="runClock">--:--</div>
+    <div class="run-status" id="runStatus">Ready when you are.</div>
+    <div class="run-big" id="runBig"></div><div class="run-sub" id="runSub"></div>
+    <div class="run-windows" id="runWindows"></div>
+    <div class="runbtns"><button class="btn" id="runStart">Start ${type==="shock"?"shockwave":"bomb"}</button><button class="ghost" id="runStop">Stop</button></div></div>`;
+}
+function getStages(){return [...document.querySelectorAll("#stagePick input:checked")].map(i=>+i.dataset.stage).sort((a,b)=>b-a);}
+function stopRunner(){if(S.runner){if(S.runner.id)clearInterval(S.runner.id);if(S.runner._end)clearTimeout(S.runner._end);}S.runner=null;}
+function startRunner(type){
+  stopRunner();const stages=getStages();
+  if(!stages.length){if($("runStatus"))$("runStatus").textContent="Pick at least one rally length.";return;}
+  const now=Date.now(),maxL=stages[0],impact=now+(maxL*60+60)*1000;
+  const W=stages.map(L=>{const we=impact-L*60*1000;return {L,ws:we-60000,we};});
+  S.runner={type,impact,W,id:setInterval(tickRunner,250)};tickRunner();
+}
+function tickRunner(){
+  const r=S.runner;if(!r||!$("runClock")){return;}
+  const now=Date.now(),toImp=(r.impact-now)/1000;
+  $("runClock").textContent=toImp>0?clkH(toImp):"IMPACT";
+  let status="",big="",sub="",alert=false;
+  let active=null,next=null;
+  for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
+  if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
+  if(toImp<=0){
+    if(r.type==="shock"){const since=-toImp;
+      if(since<30){status="PRIMARY IMPACT";big=clk(30-since);sub="Wave 1 lands in…";}
+      else if(since<45){status="WAVE 1 IN";big=clk(45-since);sub="Wave 2 lands in…";}
+      else{status="WAVE 2 IN — clear them";if(!r._end)r._end=setTimeout(stopRunner,6000);}
+    }else{status="IMPACT — all marches landing";if(!r._end)r._end=setTimeout(stopRunner,6000);}
+    alert=true;
+  }else if(active){status=`SET your ${active.L}-min rallies`;big=clk((active.we-now)/1000);
+    sub="Launch when this shows YOUR march-time (sec)"+(r.type==="shock"?" · Wave1 +30s, Wave2 +45s":"");alert=true;
+  }else if(next){const toWin=(next.ws-now)/1000;
+    if(toWin<=60){status=`GET READY — ${next.L}-min set`;big=clk(toWin);sub="Window opens at 0:00";alert=true;}
+    else{status=`Standing by · next set: ${next.L}-min`;big=clk(toWin);sub="Window opens when this hits 1:00";}
+  }else{status="Rallies away — waiting on impact";}
+  $("runStatus").textContent=status;$("runStatus").classList.toggle("alert",alert);
+  $("runBig").textContent=big;$("runSub").textContent=sub;
+  $("runWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
+    const t=act?clk((w.we-now)/1000):(now<w.ws?clk((w.ws-now)/1000)+" to open":"set");
+    return `<div class="run-win ${act?'active':''} ${done?'done':''}"><span>${w.L}-min rally</span><span>${done?'✓ set':t}</span></div>`;}).join("");
+}
 
 /* ── STATS ── */
 function renderTabChips(){
@@ -504,7 +723,7 @@ $("url").addEventListener("keydown",e=>{if(e.key==="Enter")$("load").click();});
 $("demoBtn").onclick=loadDemo;
 $("reload").onclick=()=>{
   if(S.view==="rally"){
-    S.statusByName={};S.players.forEach(p=>S.statusByName[p.name.toUpperCase()]={online:p.online,leaving:p.leaving});
+    S.statusByName={};S.players.forEach(p=>S.statusByName[p.name.toUpperCase()]={online:p.online,leaving:p.leaving,marches:p.marches,multi:p.multi,multiCount:p.multiCount});
     if(S.sheetId)connect(S.lastUrl);else renderRally();
   }else if(S.stats.active&&S.sheetId){ delete S.stats.cache[S.stats.active]; selectTab(S.stats.active); }
 };
@@ -520,7 +739,23 @@ $("list").addEventListener("click",e=>{
   if(on){const p=S.players[+on.dataset.on];p.online=!p.online;if(!p.online)p.leaving=false;renderRally();}
   else if(lv){const p=S.players[+lv.dataset.lv];p.leaving=!p.leaving;if(p.leaving)p.online=true;renderRally();}
 });
-[["sHeavy","heavy"],["sBomb","bomb"],["sWf","wf"],["sMarch","marches"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.settings[k]=num(e.target.value);renderRally();}));
+[["sHeavy","heavy"],["sBomb","bomb"],["sWf","wf"],["sMarch","marches"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.settings[k]=num(e.target.value);renderPlans();}));
+$("list").addEventListener("input",e=>{
+  const m=e.target.closest("[data-marches]"),mc=e.target.closest("[data-mc]");
+  if(m){S.players[+m.dataset.marches].marches=Math.max(1,Math.min(7,+m.value||1));renderPlans();}
+  else if(mc){S.players[+mc.dataset.mc].multiCount=Math.max(1,Math.min(7,+mc.value||1));renderPlans();}
+});
+$("list").addEventListener("change",e=>{
+  const ms=e.target.closest("[data-multi]");
+  if(ms){S.players[+ms.dataset.multi].multi=ms.checked;renderRoster();renderPlans();}
+});
+$("cards").addEventListener("click",e=>{const c=e.target.closest("[data-plan]");if(c)openPlan(c.dataset.plan);});
+$("mClose").onclick=closePlan;
+$("modal").addEventListener("click",e=>{if(e.target.id==="modal")closePlan();});
+$("mBody").addEventListener("click",e=>{
+  if(e.target.id==="runStart"){const r=$("runner");startRunner(r?r.dataset.type:"bomb");}
+  if(e.target.id==="runStop"){stopRunner();if($("runStatus")){$("runStatus").textContent="Stopped.";$("runStatus").classList.remove("alert");$("runBig").textContent="";$("runSub").textContent="";$("runClock").textContent="--:--";$("runWindows").innerHTML="";}}
+});
 
 /* stats events */
 $("tabs").addEventListener("click",e=>{
