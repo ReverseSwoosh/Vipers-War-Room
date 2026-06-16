@@ -218,6 +218,15 @@
   .stagepick{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
   .stagepick label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);border:1px solid var(--line);padding:6px 11px;border-radius:8px;cursor:pointer}
   .stagepick input{accent-color:var(--brand)}
+  /* access gate */
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .gate-card{max-width:420px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px}
+  .gate-card .mark{margin:0 auto 16px}
+  .gate-card h2{text-align:center;margin:0 0 6px;font-size:19px;letter-spacing:.04em}
+  .gate-card p{text-align:center;color:var(--muted);font-size:13px;margin:0 0 22px;line-height:1.5}
+  .gate-card input{width:100%;text-align:center;letter-spacing:.12em;font-family:var(--mono)}
+  .gate-card .btn{width:100%;margin-top:10px}
+  .gate-err{text-align:center;color:var(--machine);font-size:12.5px;min-height:18px;margin-top:10px}
   .wsecrow{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
   .wsecrow input{width:60px;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:6px 9px;border-radius:7px;font:inherit;font-family:var(--mono);font-size:12.5px;margin:0 4px}
   .wshint{color:var(--muted2);font-size:11.5px}
@@ -272,7 +281,17 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="gate" id="gate" style="display:none">
+  <div class="gate-card">
+    <div class="mark" style="margin:0 auto 16px">V</div>
+    <h2>VIPER access</h2>
+    <p>This tool is for TOXIC members only. Enter the access code your war lead shared with you.</p>
+    <input type="text" id="gateInput" placeholder="Access code" autocomplete="off" autocapitalize="off" />
+    <button class="btn" id="gateBtn">Enter</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+<div class="wrap" id="mainWrap" style="display:none">
   <header>
     <div class="logo"><div class="mark" id="mark">V</div><h1>VIPER</h1></div>
     <div class="nav" id="nav">
@@ -284,6 +303,7 @@
       <span class="dot"></span><span id="srcLabel">live</span>
       <button class="ghost" id="reload">Reload</button>
       <button class="ghost" id="change">Change sheet</button>
+      <button class="ghost" id="lockBtn" title="Require the access code again on this device">Lock</button>
     </div>
   </header>
 
@@ -371,13 +391,39 @@
 const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally",
   players:[], statusByName:{},
-  settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"", runner:null,
+  settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"", runner:null, openPlanKey:null,
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
     tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
 };
 
 /* helpers */
 const $=id=>document.getElementById(id);
+
+/* ── ACCESS GATE ──────────────────────────────────────────────────────────
+   Shared-passcode gate. This keeps casual / unauthorized visitors out of a
+   link they weren't given — it is NOT real per-person login and is not
+   secure against someone who opens dev tools or views page source (the
+   code below is visible to anyone with the file). Distribute the code only
+   to people you trust, and rotate it (edit ACCESS_CODE, re-upload) if it
+   leaks or someone should lose access. For real individual accounts and
+   for monetization, this needs a backend (e.g. Firebase Auth) — ask me to
+   set that up when you're ready.                                          */
+const ACCESS_CODE = "viper2026"; // ← change this, then re-upload index.html
+function showApp(){ $("gate").style.display="none"; $("mainWrap").style.display="block"; }
+function showGate(){ $("mainWrap").style.display="none"; $("gate").style.display="flex";
+  const gi=$("gateInput"); if(gi){gi.value="";} const ge=$("gateErr"); if(ge)ge.textContent="";
+  setTimeout(()=>{ if(gi) gi.focus(); },50);
+}
+if(localStorage.getItem("viper.unlocked")==="true") showApp(); else showGate();
+$("gateBtn").onclick=()=>{
+  const v=$("gateInput").value.trim();
+  if(v && v.toLowerCase()===ACCESS_CODE.toLowerCase()){ localStorage.setItem("viper.unlocked","true"); showApp(); }
+  else { $("gateErr").textContent="Wrong code — check with your war lead."; }
+};
+$("gateInput").addEventListener("keydown",e=>{ if(e.key==="Enter") $("gateBtn").click(); });
+$("lockBtn").onclick=()=>{ localStorage.removeItem("viper.unlocked"); showGate(); };
+/* ── end access gate ── */
+
 const norm=v=>String(v==null?"":v).trim().replace(/\s+/g," ");
 const num=v=>{const n=parseFloat(String(v==null?"":v).replace(/[^0-9.\-]/g,""));return isNaN(n)?0:n;};
 const comma=n=>Math.round(n).toLocaleString("en-US");
@@ -517,6 +563,7 @@ function clk(sec){sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),s=s
 function clkH(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return (h?h+":"+String(m).padStart(2,"0"):String(m))+":"+String(s).padStart(2,"0");}
 function schedHTML(order,vf){return `<div class="sched">`+order.map((p,i)=>`<div class="sr"><span class="si">${i+1}</span><span class="snm">${esc(p.name)}</span><span class="st">${vf(p,i)}</span></div>`).join("")+`</div>`;}
 function openPlan(key){
+  S.openPlanKey=key;
   const {online}=totals();const m=PLAN_META[key];$("mTitle").textContent=m.name+" — plan";
   let html;
   if(!online.length)html=`<div class="sec"><p>No one is checked in yet. Set some keeps online on the roster to generate a plan.</p></div>`;
@@ -527,14 +574,25 @@ function openPlan(key){
   else html=buildShock(online);
   $("mBody").innerHTML=html;$("modal").classList.add("open");
 }
-function closePlan(){$("modal").classList.remove("open");stopRunner();}
+function closePlan(){$("modal").classList.remove("open");S.openPlanKey=null;stopRunner();}
+// Re-renders the open plan sheet whenever roster data changes, so every plan —
+// not just the one being viewed — always reflects current marches/multi/online
+// state. Skipped while a runner is actively counting down, since that run's
+// timing is already locked in and shouldn't reset under the war lead mid-call.
+function refreshOpenPlan(){
+  if(!S.openPlanKey||S.runner)return;
+  openPlan(S.openPlanKey);
+}
 function buildMachine(online){
   const order=[...online].sort((a,b)=>b.overall-a.overall);
+  const totalRallies=online.reduce((s,p)=>s+p.marches,0);
   return `<div class="sec"><h4>How it runs</h4><ol>
     <li>Setter 1 fires <b>all</b> their marches as fast as possible, then waits 5–10s.</li>
     <li>Setter 2 does the same, then setter 3, on down the order.</li>
     <li>The instant marches land, <b>everyone</b> — setters too — fills down immediately.</li></ol>
-    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage-per-march first</b>.</p></div>
+    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage-per-march first</b>.</p>
+    <div class="kv"><span><span class="k">Setters </span><span class="v">${order.length}</span></span>
+    <span><span class="k">Total rallies (sum of marches) </span><span class="v ${totalRallies>=120?'good':''}">${comma(totalRallies)}</span></span></div></div>
     <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>Mfmt(p.overall)+" dmg/m")}</div>`;
 }
 function buildRolling(online){
@@ -557,20 +615,30 @@ function buildRolling(online){
 function buildWaterfall(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
   const bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
-  const rollers=order.filter(p=>p.marches>2);const Nr=rollers.length;
-  const x=Nr>=2?Math.round(290/(Nr-1)):0;
+  // Expand each setter's REMAINING marches (marches - 2) into individual roll events,
+  // sequential per setter (highest rally cap first), so a setter with more spare
+  // marches gets more slots in the schedule — this is what makes the plan respond
+  // when march counts change.
+  const events=[];
+  order.forEach(p=>{const rem=Math.max(0,p.marches-2);for(let i=0;i<rem;i++)events.push({p,i:i+1,of:rem});});
+  const R=events.length;
+  const x=R>=2?(290/(R-1)):0;
   const warn=N<15?`<div class="sec"><div class="warnbox">Waterfall is built for 15+ setters — you have ${N}. It'll still run, just a smaller bomb.</div></div>`:"";
-  const rollSched=Nr>=2?schedHTML(rollers,(p,i)=>"set +"+clk(i*x)+" → hits +"+clk(i*x+300)):`<p>Not enough spare marches to roll — need 2+ setters with more than 2 marches each.</p>`;
+  const rollSched=R>=1?`<div class="sched">`+events.map((e,idx)=>{
+      const setAt=R>=2?idx*x:290,hitAt=setAt+300;
+      return `<div class="sr"><span class="si">${idx+1}</span><span class="snm">${esc(e.p.name)}${e.of>1?` <span class="rolenote">(${e.i}/${e.of})</span>`:""}</span><span class="st">set +${clk(setAt)} → hits +${clk(hitAt)}</span></div>`;
+    }).join("")+`</div>`
+    : `<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
   return `${warn}<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Bomb </span><span class="v">${bombMarches} marches @ 10:00</span></span>
-    <span><span class="k">Rollers </span><span class="v">${Nr} setters</span></span>
-    <span><span class="k">Roller gap </span><span class="v">${x}s</span></span></div></div>
+    <span><span class="k">Roll events </span><span class="v">${R}</span></span>
+    <span><span class="k">Roller gap </span><span class="v">${x?x.toFixed(1):0}s</span></span></div></div>
     <div class="sec"><h4>How it runs</h4><ol>
     <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
-    <li><b>Roll the rest:</b> with their remaining marches, setters roll 5-min rallies in order, <b>${x}s apart</b>.</li>
-    <li>Timed so the <b>last roller lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
-    <div class="sec"><h4>Roller order &amp; timing</h4>${rollSched}</div>
-    <div class="sec"><h4>Run it</h4><p>Start the bomb window first (everyone sets their 2-march 10-min rally at their march-time), then VIPER calls each roller in turn, timed so the last lands 10s before the bomb.</p>${runnerShell("waterfall")}</div>`;
+    <li><b>Roll the rest:</b> each setter's <b>remaining</b> marches roll as 5-min rallies, fired back-to-back in their own slots before moving to the next setter — so someone with more spare marches gets more roll slots.</li>
+    <li>Timed so the <b>last roll lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
+    <div class="sec"><h4>Roll schedule (${R} events)</h4>${rollSched}</div>
+    <div class="sec"><h4>Run it</h4><p>Start the bomb window first (everyone sets their 2-march 10-min rally at their march-time), then VIPER calls each roll event in turn, timed so the last lands 10s before the bomb.</p>${runnerShell("waterfall")}</div>`;
 }
 function buildBomb(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
@@ -646,11 +714,13 @@ function startRolling(){
 function startWaterfall(){
   const online=S.players.filter(p=>p.online);
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
-  const rollers=order.filter(p=>p.marches>2);const Nr=rollers.length;
+  const events=[];
+  order.forEach(p=>{const rem=Math.max(0,p.marches-2);for(let i=0;i<rem;i++)events.push({p,i:i+1,of:rem});});
+  const R=events.length;
   const win=getWindowSecs();const now=Date.now();
   const bombWinEnd=now+win*1000, bombImpact=bombWinEnd+600*1000;
-  const x=Nr>=2?(290/(Nr-1)):0;
-  S.runner={type:"waterfall",rollers,Nr,x,win,bombWinEnd,bombImpact,id:setInterval(tickRunner,200)};tickRunner();
+  const x=R>=2?(290/(R-1)):0;
+  S.runner={type:"waterfall",events,R,x,win,bombWinEnd,bombImpact,id:setInterval(tickRunner,200)};tickRunner();
 }
 function startBomb(){
   const stages=getStages();if(!stages.length){$("runStatus").textContent="Pick at least one rally length.";return;}
@@ -690,22 +760,24 @@ function tickRolling(r){
 function tickWaterfall(r){
   const now=Date.now(),toImp=(r.bombImpact-now)/1000;
   $("runClock").textContent=toImp>0?clkH(toImp)+" to bomb":"BOMB";
-  const rollEnd=r.bombWinEnd+(r.Nr>0?(r.Nr-1)*r.x*1000:0)+1000;
+  const rollEnd=r.bombWinEnd+(r.R>0?(r.R-1)*r.x*1000:0)+1000;
   if(now<r.bombWinEnd){
     setRun("SET your 2-march 10-min BOMB",clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
-  }else if(r.Nr>0 && now<rollEnd){
-    const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0,idx=Math.min(slot,r.Nr-1),cur=r.rollers[idx];
-    setRun("ROLL — "+cur.name, r.x>0?clk(r.x-(t%r.x)):"go", "rollers left: "+(r.Nr-1-idx)+" · bomb in "+clkH(toImp), true);
+  }else if(r.R>0 && now<rollEnd){
+    const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0,idx=Math.min(slot,r.R-1),cur=r.events[idx];
+    const lbl=cur.of>1?cur.p.name+" ("+cur.i+"/"+cur.of+")":cur.p.name;
+    setRun("ROLL — "+lbl, r.x>0?clk(r.x-(t%r.x)):"go", "rolls left: "+(r.R-1-idx)+" · bomb in "+clkH(toImp), true);
   }else if(toImp>0){
     setRun("Rollers away — BOMB incoming",clkH(toImp),"everything converging on 10:00",false);
   }else{
     setRun("BOMB IMPACT — all marches landing","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);
   }
   let html=`<div class="run-win ${now<r.bombWinEnd?'active':'done'}"><span>10-min bomb · all setters, 2 marches</span><span>${now<r.bombWinEnd?clk((r.bombWinEnd-now)/1000):'✓ set'}</span></div>`;
-  if(r.Nr>0){const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0;
-    html+=r.rollers.map((p,i)=>{const setAt=r.bombWinEnd+i*r.x*1000,isNow=now>=r.bombWinEnd&&Math.min(slot,r.Nr-1)===i&&now<r.bombImpact;
+  if(r.R>0){const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0;
+    html+=r.events.map((e,i)=>{const setAt=r.bombWinEnd+i*r.x*1000,isNow=now>=r.bombWinEnd&&Math.min(slot,r.R-1)===i&&now<r.bombImpact;
+      const lbl=e.of>1?e.p.name+" ("+e.i+"/"+e.of+")":e.p.name;
       const t2=now<setAt?clk((setAt-now)/1000)+" to roll":(isNow?"ROLL NOW":"✓ rolled");
-      return `<div class="run-win ${isNow?'active':''} ${(now>=setAt&&!isNow)?'done':''}"><span>roll ${i+1}. ${esc(p.name)}</span><span>${t2}</span></div>`;}).join("");}
+      return `<div class="run-win ${isNow?'active':''} ${(now>=setAt&&!isNow)?'done':''}"><span>roll ${i+1}. ${esc(lbl)}</span><span>${t2}</span></div>`;}).join("");}
   $("runWindows").innerHTML=html;
 }
 function tickBomb(r){
@@ -870,22 +942,22 @@ $("nav").addEventListener("click",e=>{const b=e.target.closest("[data-view]");if
 
 /* rally events */
 $("search").addEventListener("input",e=>{S.search=e.target.value;renderRally();});
-$("allOn").onclick=()=>{S.players.forEach(p=>p.online=true);renderRally();};
-$("allOff").onclick=()=>{S.players.forEach(p=>{p.online=false;p.leaving=false;});renderRally();};
+$("allOn").onclick=()=>{S.players.forEach(p=>p.online=true);renderRally();refreshOpenPlan();};
+$("allOff").onclick=()=>{S.players.forEach(p=>{p.online=false;p.leaving=false;});renderRally();refreshOpenPlan();};
 $("list").addEventListener("click",e=>{
   const on=e.target.closest("[data-on]"),lv=e.target.closest("[data-lv]");
-  if(on){const p=S.players[+on.dataset.on];p.online=!p.online;if(!p.online)p.leaving=false;renderRally();}
-  else if(lv){const p=S.players[+lv.dataset.lv];p.leaving=!p.leaving;if(p.leaving)p.online=true;renderRally();}
+  if(on){const p=S.players[+on.dataset.on];p.online=!p.online;if(!p.online)p.leaving=false;renderRally();refreshOpenPlan();}
+  else if(lv){const p=S.players[+lv.dataset.lv];p.leaving=!p.leaving;if(p.leaving)p.online=true;renderRally();refreshOpenPlan();}
 });
 [["sHeavy","heavy"],["sBomb","bomb"],["sWf","wf"],["sMarch","marches"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.settings[k]=num(e.target.value);renderPlans();}));
 $("list").addEventListener("input",e=>{
   const m=e.target.closest("[data-marches]"),mc=e.target.closest("[data-mc]");
-  if(m){S.players[+m.dataset.marches].marches=Math.max(1,Math.min(7,+m.value||1));renderPlans();}
-  else if(mc){S.players[+mc.dataset.mc].multiCount=Math.max(1,Math.min(7,+mc.value||1));renderPlans();}
+  if(m){S.players[+m.dataset.marches].marches=Math.max(1,Math.min(7,+m.value||1));renderPlans();refreshOpenPlan();}
+  else if(mc){S.players[+mc.dataset.mc].multiCount=Math.max(1,Math.min(7,+mc.value||1));renderPlans();refreshOpenPlan();}
 });
 $("list").addEventListener("change",e=>{
   const ms=e.target.closest("[data-multi]");
-  if(ms){S.players[+ms.dataset.multi].multi=ms.checked;renderRoster();renderPlans();}
+  if(ms){S.players[+ms.dataset.multi].multi=ms.checked;renderRoster();renderPlans();refreshOpenPlan();}
 });
 $("cards").addEventListener("click",e=>{const c=e.target.closest("[data-plan]");if(c)openPlan(c.dataset.plan);});
 $("mClose").onclick=closePlan;
