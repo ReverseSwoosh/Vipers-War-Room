@@ -9,7 +9,7 @@
     --bg:#0d1014; --panel:#151b22; --panel2:#1b232c; --line:#27303b;
     --text:#e8eef4; --muted:#8a97a6; --muted2:#5f6b78;
     --brand:#a3e635;                 /* venom green — identity */
-    --machine:#ff5d63; --waterfall:#27d6a3; --bomb:#f5a524;
+    --machine:#ff5d63; --waterfall:#27d6a3; --bomb:#f5a524; --wfnf:#38bdf8;
     --radius:14px;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --disp:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -161,6 +161,17 @@
   .rolechips{padding:16px;display:flex;flex-wrap:wrap;gap:8px;max-height:62vh;overflow:auto}
   .nchip{background:#0e151c;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--text)}
   .rolenote{color:var(--muted2);font-size:12.5px}
+  /* wfnf config + role pickers */
+  .selrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:4px}
+  .selrow label{font-size:11px;letter-spacing:.05em;color:var(--muted);display:block;margin-bottom:6px}
+  .sec select{width:100%;background:#0c1116;border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer}
+  .sec select:focus{outline:none;border-color:var(--brand)}
+  .sec select:disabled{opacity:.5;cursor:default}
+  .rolepick{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:9px;margin-top:6px}
+  .rolepick label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);padding:5px 9px;border-radius:7px;cursor:pointer;white-space:nowrap;transition:.12s}
+  .rolepick label.on{border-color:var(--brand);color:var(--text)}
+  .rolepick input{accent-color:var(--brand)}
+  .rolepick input:disabled{cursor:default}
   /* setter controls */
   .prow{flex-direction:column;align-items:stretch;gap:9px}
   .prowtop{display:flex;align-items:center;gap:12px}
@@ -173,11 +184,11 @@
   .rcard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;cursor:pointer;transition:.15s;color:var(--text);font:inherit;position:relative;overflow:hidden}
   .rcard:hover{border-color:var(--muted2);transform:translateY(-1px)}
   .rcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
-  .rcard.machine::before{background:var(--machine)}.rcard.rolling::before{background:#7aa2ff}.rcard.waterfall::before{background:var(--waterfall)}.rcard.bomb::before{background:var(--bomb)}.rcard.shock::before{background:#c77dff}
+  .rcard.machine::before{background:var(--machine)}.rcard.rolling::before{background:#7aa2ff}.rcard.waterfall::before{background:var(--waterfall)}.rcard.bomb::before{background:var(--bomb)}.rcard.shock::before{background:#c77dff}.rcard.wfnf::before{background:var(--wfnf)}
   .rcard.rec{border-color:var(--brand)}
   .rc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
   .rc-name{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
-  .rcard.machine .rc-name{color:var(--machine)}.rcard.rolling .rc-name{color:#7aa2ff}.rcard.waterfall .rc-name{color:var(--waterfall)}.rcard.bomb .rc-name{color:var(--bomb)}.rcard.shock .rc-name{color:#c77dff}
+  .rcard.machine .rc-name{color:var(--machine)}.rcard.rolling .rc-name{color:#7aa2ff}.rcard.waterfall .rc-name{color:var(--waterfall)}.rcard.bomb .rc-name{color:var(--bomb)}.rcard.shock .rc-name{color:#c77dff}.rcard.wfnf .rc-name{color:var(--wfnf)}
   .rc-badge{font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--brand);color:#0d1014;padding:3px 7px;border-radius:999px;font-weight:700;white-space:nowrap}
   .rc-sum{font-size:12.5px;color:var(--muted);line-height:1.5;min-height:36px}
   .rc-go{font-size:12px;color:var(--muted2);margin-top:10px;display:inline-block}
@@ -394,6 +405,7 @@ const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally",
   players:[], statusByName:{},
   settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"", runner:null, openPlanKey:null,
+  wfnf:{ bombLen:30, mode:"shared", bombSet:new Set(), rollSet:new Set(), fillSet:new Set() },
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
     tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
 };
@@ -561,7 +573,7 @@ function renderRoster(){
         </div>
       </div>${ctl}</div>`;}).join(""):`<div class="empty">No keep matches “${esc(S.search)}”.</div>`;
 }
-const PLAN_META={machine:{name:"Machine Gun",cls:"machine"},rolling:{name:"Rolling",cls:"rolling"},waterfall:{name:"Waterfall",cls:"waterfall"},bomb:{name:"Bomb",cls:"bomb"},shock:{name:"Shockwave",cls:"shock"}};
+const PLAN_META={machine:{name:"Machine Gun",cls:"machine"},rolling:{name:"Rolling",cls:"rolling"},waterfall:{name:"Waterfall",cls:"waterfall"},wfnf:{name:"Waterfall — No Fill Down",cls:"wfnf"},bomb:{name:"Bomb",cls:"bomb"},shock:{name:"Shockwave",cls:"shock"}};
 function renderPlans(){
   const {online,heavy,marches}=totals();
   const rec=recommend(online,heavy);
@@ -572,10 +584,12 @@ function renderPlans(){
   const recKey={"Machine Gun":"machine","Waterfall":"waterfall","Bomb":"bomb"}[rec.label]||"";
   const x=N>=2?Math.round(300/N):0;
   const bombMarches=online.reduce((s,p)=>s+Math.min(2,p.marches),0);
+  const wf2=computeWfNoFill(online);
   const sums={
     machine:`${N} setter${N!==1?"s":""} · set order by damage-per-march, then fill down`,
     rolling: N>=2?`${N} setters · non-stop 5-min loop, a hit every ~${x}s`:`Needs 2+ setters`,
     waterfall:`${N} setters · ${bombMarches}-march 10-min bomb + timed rollers`,
+    wfnf:`${S.wfnf.bombLen}-min bomb · ${S.wfnf.mode==="shared"?"shared":"assigned"} · ${wf2.R} roll events`,
     bomb:`≈ ${comma(marches)} rallies · staged so all hit the same second`,
     shock:`${N} setters · 3 waves to bait the refresh`,
   };
@@ -596,6 +610,7 @@ function openPlan(key){
   else if(key==="machine")html=buildMachine(online);
   else if(key==="rolling")html=buildRolling(online);
   else if(key==="waterfall")html=buildWaterfall(online);
+  else if(key==="wfnf")html=buildWfNoFill(online);
   else if(key==="bomb")html=buildBomb(online);
   else html=buildShock(online);
   $("mBody").innerHTML=html;$("modal").classList.add("open");
@@ -638,6 +653,13 @@ function buildRolling(online){
     <div class="sec"><h4>Order &amp; timing (first cycle)</h4>${schedHTML(order,(p,i)=>"sets +"+clk(i*x))}</div>
     <div class="sec"><h4>Run it</h4><p>Hit start — VIPER calls each setter in turn and counts down the ${x}s gap, looping forever.</p>${runnerShell("rolling")}</div>`;
 }
+// Shared gap math for any "rolling rallies feeding into a longer bomb" plan:
+// available window = bombSecs - bufferSecs - rollDurationSecs, spread evenly
+// across R roll events (R=1 fires as late as the window allows).
+function rollGapSecs(bombSecs, bufferSecs, R, rollDur=300){
+  const win=Math.max(0, bombSecs-bufferSecs-rollDur);
+  return R>=2 ? win/(R-1) : 0;
+}
 function buildWaterfall(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
   const bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
@@ -648,10 +670,11 @@ function buildWaterfall(online){
   const events=[];
   order.forEach(p=>{const rem=Math.max(0,p.marches-2);for(let i=0;i<rem;i++)events.push({p,i:i+1,of:rem});});
   const R=events.length;
-  const x=R>=2?(290/(R-1)):0;
+  const rollWindow=Math.max(0,600-10-300);
+  const x=rollGapSecs(600,10,R);
   const warn=N<15?`<div class="sec"><div class="warnbox">Waterfall is built for 15+ setters — you have ${N}. It'll still run, just a smaller bomb.</div></div>`:"";
   const rollSched=R>=1?`<div class="sched">`+events.map((e,idx)=>{
-      const setAt=R>=2?idx*x:290,hitAt=setAt+300;
+      const setAt=R>=2?idx*x:rollWindow,hitAt=setAt+300;
       return `<div class="sr"><span class="si">${idx+1}</span><span class="snm">${esc(e.p.name)}${e.of>1?` <span class="rolenote">(${e.i}/${e.of})</span>`:""}</span><span class="st">set +${clk(setAt)} → hits +${clk(hitAt)}</span></div>`;
     }).join("")+`</div>`
     : `<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
@@ -665,6 +688,76 @@ function buildWaterfall(online){
     <li>Timed so the <b>last roll lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
     <div class="sec"><h4>Roll schedule (${R} events)</h4>${rollSched}</div>
     <div class="sec"><h4>Run it</h4><p>Start the bomb window first (everyone sets their 2-march 10-min rally at their march-time), then VIPER calls each roll event in turn, timed so the last lands 10s before the bomb.</p>${runnerShell("waterfall")}</div>`;
+}
+/* ---- Waterfall — No Fill Down ----
+   Like Waterfall, but: (a) the bomb can be 10/30/60 min, not just 10, and
+   (b) duty is either Shared (everyone splits 2-to-bomb / rest-to-roll, same
+   as classic Waterfall) or Assigned (separate named bomb setters / roller
+   setters / fillers — nobody splits). Rolls always land 20s before impact,
+   never 10, since there's no fill-down safety net here. */
+function roleCheckList(online, setObj, role, locked){
+  if(!online.length) return `<span class="rolenote">No one's online yet.</span>`;
+  return online.map(p=>{const on=setObj.has(p.name);
+    return `<label class="${on?'on':''}"><input type="checkbox" data-role="${role}" data-name="${esc(p.name)}" ${on?"checked":""} ${locked?"disabled":""}> ${esc(p.name)}</label>`;
+  }).join("");
+}
+function computeWfNoFill(online){
+  const cfg=S.wfnf, bombSecs=cfg.bombLen*60, buffer=20, rollDur=300;
+  let bombContributors, rollContributors, perRoll, bombMarches;
+  if(cfg.mode==="assigned"){
+    bombContributors=online.filter(p=>cfg.bombSet.has(p.name)).sort((a,b)=>b.rallyCap-a.rallyCap);
+    rollContributors=online.filter(p=>cfg.rollSet.has(p.name)).sort((a,b)=>b.rallyCap-a.rallyCap);
+    perRoll=p=>p.marches;
+    bombMarches=bombContributors.reduce((s,p)=>s+p.marches,0);
+  }else{
+    const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+    bombContributors=order; rollContributors=order;
+    perRoll=p=>Math.max(0,p.marches-2);
+    bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
+  }
+  const events=[];
+  rollContributors.forEach(p=>{const rem=perRoll(p);for(let i=0;i<rem;i++)events.push({p,i:i+1,of:rem});});
+  const R=events.length;
+  const rollWindow=Math.max(0,bombSecs-buffer-rollDur);
+  const x=rollGapSecs(bombSecs,buffer,R,rollDur);
+  const fillers=online.filter(p=>cfg.fillSet.has(p.name));
+  return {bombContributors,rollContributors,bombMarches,events,R,x,rollWindow,bombSecs,buffer,fillers};
+}
+function buildWfNoFill(online){
+  const cfg=S.wfnf, locked=!!S.runner, calc=computeWfNoFill(online);
+  const modeNote=cfg.mode==="shared"
+    ? `Every checked-in setter throws <b>2 marches</b> into the bomb and rolls the rest — same mechanic as Waterfall, just with a longer bomb.`
+    : `Dedicated groups: <b>bomb setters</b> fire all their marches into the bomb, <b>roller setters</b> fire all their marches as rolling 5-min rallies, and <b>fillers</b> handle filling the rolls — nobody splits duty.`;
+  const selrow=`<div class="sec"><h4>Configure</h4><div class="selrow">
+      <div><label>Bomb length</label><select id="wfBombLen" ${locked?"disabled":""}>${[10,30,60].map(v=>`<option value="${v}" ${cfg.bombLen===v?"selected":""}>${v} min</option>`).join("")}</select></div>
+      <div><label>Bomb setup</label><select id="wfMode" ${locked?"disabled":""}>
+        <option value="shared" ${cfg.mode==="shared"?"selected":""}>Shared — everyone splits 2 / rest</option>
+        <option value="assigned" ${cfg.mode==="assigned"?"selected":""}>Assigned roles — separate groups</option>
+      </select></div></div></div>`;
+  const warn=(cfg.mode==="assigned"&&(calc.bombContributors.length===0||calc.rollContributors.length===0))
+    ?`<div class="sec"><div class="warnbox">${calc.bombContributors.length===0?"No bomb setters assigned yet. ":""}${calc.rollContributors.length===0?"No roller setters assigned yet.":""}</div></div>`:"";
+  const assignedUI=cfg.mode==="assigned"?`
+    <div class="sec"><h4>Bomb setters (${calc.bombContributors.length})</h4><div class="rolepick">${roleCheckList(online,cfg.bombSet,"bomb",locked)}</div></div>
+    <div class="sec"><h4>Roller setters (${calc.rollContributors.length})</h4><div class="rolepick">${roleCheckList(online,cfg.rollSet,"roll",locked)}</div></div>`:"";
+  const fillersUI=`<div class="sec"><h4>Fillers for the rolls (${calc.fillers.length}) <span class="rolenote">— informational, no marches attributed</span></h4>
+    <div class="rolepick">${roleCheckList(online,cfg.fillSet,"fill",locked)}</div></div>`;
+  const rollSched=calc.R>=1?`<div class="sched">`+calc.events.map((e,idx)=>{
+      const setAt=calc.R>=2?idx*calc.x:calc.rollWindow,hitAt=setAt+300;
+      return `<div class="sr"><span class="si">${idx+1}</span><span class="snm">${esc(e.p.name)}${e.of>1?` <span class="rolenote">(${e.i}/${e.of})</span>`:""}</span><span class="st">set +${clk(setAt)} → hits +${clk(hitAt)}</span></div>`;
+    }).join("")+`</div>`
+    : `<p>No rolling rallies yet — ${cfg.mode==="assigned"?"assign some roller setters above":"no one has spare marches to roll"}.</p>`;
+  return `<div class="sec"><h4>The play</h4><p>${modeNote}</p><div class="kv">
+    <span><span class="k">Bomb length </span><span class="v">${cfg.bombLen}:00</span></span>
+    <span><span class="k">Bomb marches </span><span class="v">${calc.bombMarches}</span></span>
+    <span><span class="k">Roll events </span><span class="v">${calc.R}</span></span>
+    <span><span class="k">Roller gap </span><span class="v">${calc.x?calc.x.toFixed(1):0}s</span></span></div></div>
+    ${selrow}${warn}${assignedUI}${fillersUI}
+    <div class="sec"><h4>How it runs</h4><ol>
+    <li>${cfg.mode==="shared"?`Every setter throws 2 marches into the <b>${cfg.bombLen}-min</b> bomb (${calc.bombMarches} marches total).`:`The assigned <b>bomb setters</b> throw all their marches into the <b>${cfg.bombLen}-min</b> bomb (${calc.bombMarches} marches total).`}</li>
+    <li>${cfg.mode==="shared"?"Everyone's remaining marches":"The roller setters' marches"} roll as 5-min rallies, fired back-to-back per person before moving to the next — fillers (if assigned) handle filling them, not the setters themselves.</li>
+    <li>Timed so the <b>last roll lands 20 seconds</b> before the bomb — no fill-down safety net needed.</li></ol></div>
+    <div class="sec"><h4>Roll schedule (${calc.R} events)</h4>${rollSched}</div>
+    <div class="sec"><h4>Run it</h4><p>Start the bomb window first, then VIPER calls each roll event in turn, timed so the last lands 20s before the ${cfg.bombLen}-min bomb.</p>${runnerShell("wfnf")}</div>`;
 }
 function buildBomb(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
@@ -727,6 +820,7 @@ function startRunner(type){
   stopRunner();
   if(type==="rolling")startRolling();
   else if(type==="waterfall")startWaterfall();
+  else if(type==="wfnf")startWfNoFill();
   else if(type==="shock")startShock();
   else startBomb();
 }
@@ -745,8 +839,16 @@ function startWaterfall(){
   const R=events.length;
   const win=getWindowSecs();const now=Date.now();
   const bombWinEnd=now+win*1000, bombImpact=bombWinEnd+600*1000;
-  const x=R>=2?(290/(R-1)):0;
-  S.runner={type:"waterfall",events,R,x,win,bombWinEnd,bombImpact,id:setInterval(tickRunner,200)};tickRunner();
+  const x=rollGapSecs(600,10,R);
+  S.runner={type:"waterfall",events,R,x,win,bombWinEnd,bombImpact,bombLenMin:10,bombDesc:"all setters, 2 marches each",id:setInterval(tickRunner,200)};tickRunner();
+}
+function startWfNoFill(){
+  const online=S.players.filter(p=>p.online);
+  const calc=computeWfNoFill(online);
+  const win=getWindowSecs();const now=Date.now();
+  const bombWinEnd=now+win*1000, bombImpact=bombWinEnd+calc.bombSecs*1000;
+  const bombDesc=S.wfnf.mode==="shared"?"all setters, 2 marches each":"assigned bomb setters, full marches";
+  S.runner={type:"wfnf",events:calc.events,R:calc.R,x:calc.x,win,bombWinEnd,bombImpact,bombLenMin:S.wfnf.bombLen,bombDesc,id:setInterval(tickRunner,200)};tickRunner();
 }
 function startBomb(){
   const stages=getStages();if(!stages.length){$("runStatus").textContent="Pick at least one rally length.";return;}
@@ -770,7 +872,7 @@ function startShock(){
 function tickRunner(){
   const r=S.runner;if(!r||!$("runClock"))return;
   if(r.type==="rolling")tickRolling(r);
-  else if(r.type==="waterfall")tickWaterfall(r);
+  else if(r.type==="waterfall"||r.type==="wfnf")tickWaterfall(r);
   else if(r.type==="shock")tickShock(r);
   else tickBomb(r);
 }
@@ -788,17 +890,17 @@ function tickWaterfall(r){
   $("runClock").textContent=toImp>0?clkH(toImp)+" to bomb":"BOMB";
   const rollEnd=r.bombWinEnd+(r.R>0?(r.R-1)*r.x*1000:0)+1000;
   if(now<r.bombWinEnd){
-    setRun("SET your 2-march 10-min BOMB",clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+    setRun(`SET your ${r.bombLenMin}-min BOMB (${r.bombDesc})`,clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
   }else if(r.R>0 && now<rollEnd){
     const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0,idx=Math.min(slot,r.R-1),cur=r.events[idx];
     const lbl=cur.of>1?cur.p.name+" ("+cur.i+"/"+cur.of+")":cur.p.name;
     setRun("ROLL — "+lbl, r.x>0?clk(r.x-(t%r.x)):"go", "rolls left: "+(r.R-1-idx)+" · bomb in "+clkH(toImp), true);
   }else if(toImp>0){
-    setRun("Rollers away — BOMB incoming",clkH(toImp),"everything converging on 10:00",false);
+    setRun("Rollers away — BOMB incoming",clkH(toImp),`everything converging on ${r.bombLenMin}:00`,false);
   }else{
     setRun("BOMB IMPACT — all marches landing","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);
   }
-  let html=`<div class="run-win ${now<r.bombWinEnd?'active':'done'}"><span>10-min bomb · all setters, 2 marches</span><span>${now<r.bombWinEnd?clk((r.bombWinEnd-now)/1000):'✓ set'}</span></div>`;
+  let html=`<div class="run-win ${now<r.bombWinEnd?'active':'done'}"><span>${r.bombLenMin}-min bomb · ${r.bombDesc}</span><span>${now<r.bombWinEnd?clk((r.bombWinEnd-now)/1000):'✓ set'}</span></div>`;
   if(r.R>0){const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0;
     html+=r.events.map((e,i)=>{const setAt=r.bombWinEnd+i*r.x*1000,isNow=now>=r.bombWinEnd&&Math.min(slot,r.R-1)===i&&now<r.bombImpact;
       const lbl=e.of>1?e.p.name+" ("+e.i+"/"+e.of+")":e.p.name;
@@ -991,6 +1093,17 @@ $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closePlan();});
 $("mBody").addEventListener("click",e=>{
   if(e.target.id==="runStart"){const r=$("runner");startRunner(r?r.dataset.type:"bomb");}
   if(e.target.id==="runStop"){stopRunner();if($("runStatus")){$("runStatus").textContent="Stopped.";$("runStatus").classList.remove("alert");$("runBig").textContent="";$("runSub").textContent="";$("runClock").textContent="--:--";$("runWindows").innerHTML="";}}
+});
+$("mBody").addEventListener("change",e=>{
+  if(S.runner)return; // config is locked while a countdown is actively running
+  if(e.target.id==="wfBombLen"){ S.wfnf.bombLen=+e.target.value; openPlan("wfnf"); return; }
+  if(e.target.id==="wfMode"){ S.wfnf.mode=e.target.value; openPlan("wfnf"); return; }
+  const role=e.target.closest("[data-role]");
+  if(role){
+    const set=role.dataset.role==="bomb"?S.wfnf.bombSet:role.dataset.role==="roll"?S.wfnf.rollSet:S.wfnf.fillSet;
+    if(role.checked) set.add(role.dataset.name); else set.delete(role.dataset.name);
+    openPlan("wfnf");
+  }
 });
 
 /* stats events */
