@@ -88,6 +88,11 @@
   .verdict .why{font-size:13.5px;color:var(--muted);max-width:60ch;line-height:1.5}
   .verdict .glow{position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;filter:blur(40px);opacity:.22;pointer-events:none}
   .vmeta{display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)}.vmeta b{font-family:var(--mono);color:var(--text)}
+  .valt{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .valt .ai{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+  .valt .ai .an{font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase;flex:none}
+  .vmg{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted2);line-height:1.5}
+  .vmg b{color:var(--muted)}
   details.settings{margin-bottom:18px}
   details.settings summary{cursor:pointer;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);list-style:none;padding:6px 2px}
   details.settings summary::-webkit-details-marker{display:none}
@@ -195,6 +200,8 @@
   .rc-name{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
   .rcard.machine .rc-name{color:var(--machine)}.rcard.rolling .rc-name{color:#7aa2ff}.rcard.waterfall .rc-name{color:var(--waterfall)}.rcard.bomb .rc-name{color:var(--bomb)}.rcard.shock .rc-name{color:#c77dff}.rcard.wfnf .rc-name{color:var(--wfnf)}
   .rc-badge{font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--brand);color:#0d1014;padding:3px 7px;border-radius:999px;font-weight:700;white-space:nowrap}
+  .rc-badge.alt{background:transparent;border:1px solid var(--muted2);color:var(--muted)}
+  .rcard.alt{border-color:var(--muted2)}
   .rc-sum{font-size:12.5px;color:var(--muted);line-height:1.5;min-height:36px}
   .rc-go{font-size:12px;color:var(--muted2);margin-top:10px;display:inline-block}
   .rcard:hover .rc-go{color:var(--brand)}
@@ -362,14 +369,18 @@
         <div class="vtype" id="vtype">—</div>
         <div class="why" id="vwhy">Check someone in to get a recommendation.</div>
         <div class="vmeta" id="vmeta"></div>
+        <div class="valt" id="valt"></div>
+        <div class="vmg" id="vmg"></div>
       </div>
       <details class="settings">
-        <summary>Thresholds</summary>
+        <summary>Recommendation thresholds</summary>
         <div class="sgrid">
+          <div><label>Bomb: min marches</label><input type="number" id="sBombM" value="80"></div>
+          <div><label>Waterfall band: min marches</label><input type="number" id="sWfM" value="55"></div>
+          <div><label>Waterfall NFD: min setters</label><input type="number" id="sWfnfN" value="11"></div>
+          <div><label>Shockwave: min setters</label><input type="number" id="sShockN" value="16"></div>
           <div><label>Heavy-setter cap cutoff</label><input type="number" id="sHeavy" value="2000000"></div>
-          <div><label>Bomb: min setters</label><input type="number" id="sBomb" value="24"></div>
-          <div><label>Waterfall: min heavy</label><input type="number" id="sWf" value="12"></div>
-          <div><label>Marches per keep</label><input type="number" id="sMarch" value="5"></div>
+          <div><label>Marches per keep (default)</label><input type="number" id="sMarch" value="5"></div>
         </div>
       </details>
       <div class="cards" id="cards"></div>
@@ -409,7 +420,7 @@
 const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally", dmgColFound:true,
   players:[], statusByName:{},
-  settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"", runner:null, openPlanKey:null,
+  settings:{ heavy:2000000, marches:5, bombM:80, wfM:55, wfnfN:11, shockN:16 }, search:"", runner:null, openPlanKey:null,
   wfnf:{ bombLen:30, mode:"shared", bombSet:new Set(), rollSet:new Set(), stages:new Set([60,30,10]) },
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
     tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
@@ -553,13 +564,34 @@ function loadDemo(){
 }
 
 /* ── RALLY ── */
-function recommend(online,heavy){
-  const s=S.settings;
-  if(online.length===0)return{label:"Awaiting check-ins",color:"var(--muted2)",glow:"transparent",why:"Check someone in to get a recommendation."};
-  const n=online.length,hh=heavy.length;
-  if(n>=s.bomb)return{label:"Bomb",color:"var(--bomb)",glow:"var(--bomb)",why:`${n} setters online — enough bodies to put up and fill 100+ rallies. Everyone sets; biggest caps lead the timed waves.`};
-  if(hh>=s.wf)return{label:"Waterfall",color:"var(--waterfall)",glow:"var(--waterfall)",why:`${hh} heavy setters (cap ≥ ${Mfmt(s.heavy)}) — strong core to anchor the 10-minute rallies and roll the rest in.`};
-  return{label:"Machine Gun",color:"var(--machine)",glow:"var(--machine)",why:`Lean crew (${n} online) — set fast, no refresh window, then everyone fills down. Order is highest damage-per-march first.`};
+const PLAN_COLOR={machine:"var(--machine)",rolling:"#7aa2ff",waterfall:"var(--waterfall)",wfnf:"var(--wfnf)",bomb:"var(--bomb)",shock:"#c77dff"};
+// Ranked recommendation, based on total settable marches (M) and headcount (N):
+//  M ≥ 80              → Bomb (flips a SOP outright), plus Shockwave if N ≥ 16 (7+5+4 wave split)
+//  55 ≤ M < 80, N ≥ 11 → Waterfall – No Fill Down (5 rollers + 6 bomb setters, separate crews)
+//  55 ≤ M < 80, N < 11 → Waterfall (shared duty — not enough bodies to split into two crews)
+//  M < 55              → Rolling (keep pressure on while more people log on)
+// Machine Gun is intentionally never auto-ranked — it's a setters-vs-fillers
+// judgment call for whoever's running voice chat, not something headcount
+// math can see, so it's always surfaced as its own line instead.
+function recommend(online,marches){
+  const N=online.length, M=marches, s=S.settings;
+  if(N===0) return {ranked:[],machineNote:null};
+  const ranked=[];
+  if(M>=s.bombM){
+    ranked.push({key:"bomb",why:`${comma(M)} marches available — enough to flip a SOP outright (their ~1.4M troops needs roughly 80–90+ rallies hitting together). Everyone sets, staged so it all lands at once.`});
+    if(N>=s.shockN) ranked.push({key:"shock",why:`${N} setters online supports the full 3-wave split (7 + 5 + 4) — bait their refresh, then crash the real damage in right behind it.`});
+  }else if(M>=s.wfM){
+    if(N>=s.wfnfN){
+      ranked.push({key:"wfnf",why:`${comma(M)} marches and ${N} setters — enough to run dedicated bomb setters and rollers as separate crews, no fill-down needed.`});
+      ranked.push({key:"waterfall",why:`Same numbers also support shared duty if you'd rather not split into two dedicated groups.`});
+    }else{
+      ranked.push({key:"waterfall",why:`${comma(M)} marches, but only ${N} setters — not quite enough bodies to split into dedicated bomb/roller crews (needs ${s.wfnfN}+), so share the duty instead.`});
+    }
+  }else if(N>=2){
+    ranked.push({key:"rolling",why:`${comma(M)} marches available — not enough yet for a bomb or waterfall. Keep continuous pressure on while more people log on.`});
+  }
+  const machineNote=`Machine Gun is always on the table with lots of setters and few fillers — that's a call for whoever's running voice chat, not something headcount math can see.`;
+  return {ranked,machineNote};
 }
 function renderRally(){ renderRoster(); renderPlans(); }
 function totals(){
@@ -592,17 +624,30 @@ function renderRoster(){
 const PLAN_META={machine:{name:"Machine Gun",cls:"machine"},rolling:{name:"Rolling",cls:"rolling"},waterfall:{name:"Waterfall",cls:"waterfall"},wfnf:{name:"Waterfall — No Fill Down",cls:"wfnf"},bomb:{name:"Bomb",cls:"bomb"},shock:{name:"Shockwave",cls:"shock"}};
 function renderPlans(){
   const {online,heavy,marches}=totals();
-  const rec=recommend(online,heavy);
-  $("vtype").textContent=rec.label;$("vtype").style.color=rec.color;$("vwhy").textContent=rec.why;
-  $("glow").style.background=rec.glow;$("verdict").style.borderColor=rec.glow==="transparent"?"var(--line)":rec.color+"66";
+  const rec=recommend(online,marches);
+  const top=rec.ranked[0], alts=rec.ranked.slice(1);
+  if(top){
+    const tm=PLAN_META[top.key],tc=PLAN_COLOR[top.key];
+    $("vtype").textContent=tm.name;$("vtype").style.color=tc;$("vwhy").textContent=top.why;
+    $("glow").style.background=tc;$("verdict").style.borderColor=tc+"66";
+  }else{
+    $("vtype").textContent=online.length?"Not enough setters yet":"Awaiting check-ins";
+    $("vtype").style.color="var(--muted2)";
+    $("vwhy").textContent=online.length?"Rolling needs at least 2 setters — check in one more.":"Check someone in to get a recommendation.";
+    $("glow").style.background="transparent";$("verdict").style.borderColor="var(--line)";
+  }
   $("vmeta").innerHTML=online.length?`<span>Online <b>${online.length}</b></span><span>Heavy <b>${heavy.length}</b></span><span>Marches <b>${comma(marches)}</b></span>`:"";
+  $("valt").innerHTML=alts.length?alts.map(a=>{const m=PLAN_META[a.key];
+    return `<div class="ai"><span class="an" style="color:${PLAN_COLOR[a.key]}">${m.name}</span><span>${a.why}</span></div>`;}).join(""):"";
+  $("vmg").innerHTML=online.length?`<b>Machine Gun:</b> ${rec.machineNote}`:"";
   const N=online.length;
-  const recKey={"Machine Gun":"machine","Waterfall":"waterfall","Bomb":"bomb"}[rec.label]||"";
+  const recKey=top?top.key:"";
+  const altKeys=new Set(alts.map(a=>a.key));
   const x=N>=2?Math.round(300/N):0;
   const bombMarches=online.reduce((s,p)=>s+Math.min(2,p.marches),0);
   const wf2=computeWfNoFill(online);
   const sums={
-    machine:`${N} setter${N!==1?"s":""} · set order by rally cap, then fill down`,
+    machine:`${N} setter${N!==1?"s":""} · set order by damage dealt per march, then fill down`,
     rolling: N>=2?`${N} setters · non-stop 5-min loop, a hit every ~${x}s`:`Needs 2+ setters`,
     waterfall:`${N} setters · ${bombMarches}-march 10-min bomb + timed rollers`,
     wfnf:`${S.wfnf.bombLen}-min bomb · ${S.wfnf.mode==="shared"?"shared":"assigned"} · ${wf2.R} roll events`,
@@ -610,8 +655,10 @@ function renderPlans(){
     shock:`${N} setters · 3 waves to bait the refresh`,
   };
   $("cards").innerHTML=Object.keys(PLAN_META).map(k=>{const m=PLAN_META[k];
-    return `<button class="rcard ${m.cls} ${recKey===k?'rec':''}" data-plan="${k}">
-      <div class="rc-top"><span class="rc-name">${m.name}</span>${recKey===k?'<span class="rc-badge">Recommended</span>':''}</div>
+    const isTop=recKey===k, isAlt=altKeys.has(k);
+    const badge=isTop?'<span class="rc-badge">Recommended</span>':isAlt?'<span class="rc-badge alt">Also viable</span>':'';
+    return `<button class="rcard ${m.cls} ${isTop?'rec':''} ${isAlt?'alt':''}" data-plan="${k}">
+      <div class="rc-top"><span class="rc-name">${m.name}</span>${badge}</div>
       <div class="rc-sum">${sums[k]}</div><span class="rc-go">View plan →</span></button>`;}).join("");
 }
 /* ── plan details ── */
@@ -641,16 +688,17 @@ function refreshOpenPlan(){
   openPlan(S.openPlanKey);
 }
 function buildMachine(online){
-  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const order=[...online].sort((a,b)=>b.dmgPerMarch-a.dmgPerMarch);
   const totalRallies=online.reduce((s,p)=>s+p.marches,0);
-  return `<div class="sec"><h4>How it runs</h4><ol>
+  const dmgWarn=S.dmgColFound?"":`<div class="sec"><div class="warnbox">No "Damage Dealt per March" column found on your ATTACK tab — falling back to ATTACK OVERALL for sort order until it's added.</div></div>`;
+  return `${dmgWarn}<div class="sec"><h4>How it runs</h4><ol>
     <li>Setter 1 fires <b>all</b> their marches as fast as possible, then waits 5–10s.</li>
     <li>Setter 2 does the same, then setter 3, on down the order.</li>
     <li>The instant marches land, <b>everyone</b> — setters too — fills down immediately.</li></ol>
-    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Order runs <b>highest rally cap first</b>.</p>
+    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage dealt per march first</b>.</p>
     <div class="kv"><span><span class="k">Setters </span><span class="v">${order.length}</span></span>
     <span><span class="k">Total rallies (sum of marches) </span><span class="v ${totalRallies>=120?'good':''}">${comma(totalRallies)}</span></span></div></div>
-    <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>comma(p.rallyCap))}</div>`;
+    <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>Mfmt(p.dmgPerMarch)+" dmg/m")}</div>`;
 }
 function buildRolling(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
@@ -677,8 +725,7 @@ function rollGapSecs(bombSecs, bufferSecs, R, rollDur=300){
   return R>=2 ? win/(R-1) : 0;
 }
 function buildWaterfall(online){
-  const order=[...online].sort((a,b)=>b.dmgPerMarch-a.dmgPerMarch);const N=order.length;
-  const dmgWarn=S.dmgColFound?"":`<div class="sec"><div class="warnbox">No "Damage Dealt per March" column found on your ATTACK tab — falling back to ATTACK OVERALL for sort order until it's added.</div></div>`;
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
   const bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
   // Expand each setter's REMAINING marches (marches - 2) into individual roll events,
   // sequential per setter (highest rally cap first), so a setter with more spare
@@ -695,12 +742,11 @@ function buildWaterfall(online){
       return `<div class="sr"><span class="si">${idx+1}</span><span class="snm">${esc(e.p.name)}${e.of>1?` <span class="rolenote">(${e.i}/${e.of})</span>`:""}</span><span class="st">set +${clk(setAt)} → hits +${clk(hitAt)}</span></div>`;
     }).join("")+`</div>`
     : `<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
-  return `${dmgWarn}${warn}<div class="sec"><h4>The maths</h4><div class="kv">
+  return `${warn}<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Bomb </span><span class="v">${bombMarches} marches @ 10:00</span></span>
     <span><span class="k">Roll events </span><span class="v">${R}</span></span>
     <span><span class="k">Roller gap </span><span class="v">${x?x.toFixed(1):0}s</span></span></div></div>
     <div class="sec"><h4>How it runs</h4><ol>
-    <li><b>Set order:</b> sorted by <b>damage dealt per march</b>, highest first.</li>
     <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
     <li><b>Roll the rest:</b> each setter's <b>remaining</b> marches roll as 5-min rallies, fired back-to-back in their own slots before moving to the next setter — so someone with more spare marches gets more roll slots.</li>
     <li>Timed so the <b>last roll lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
@@ -1207,7 +1253,7 @@ $("list").addEventListener("click",e=>{
   if(on){const p=S.players[+on.dataset.on];p.online=!p.online;if(!p.online)p.leaving=false;renderRally();refreshOpenPlan();}
   else if(lv){const p=S.players[+lv.dataset.lv];p.leaving=!p.leaving;if(p.leaving)p.online=true;renderRally();refreshOpenPlan();}
 });
-[["sHeavy","heavy"],["sBomb","bomb"],["sWf","wf"],["sMarch","marches"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.settings[k]=num(e.target.value);renderPlans();}));
+[["sHeavy","heavy"],["sMarch","marches"],["sBombM","bombM"],["sWfM","wfM"],["sWfnfN","wfnfN"],["sShockN","shockN"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{S.settings[k]=num(e.target.value);renderPlans();}));
 $("list").addEventListener("input",e=>{
   const m=e.target.closest("[data-marches]"),mc=e.target.closest("[data-mc]");
   if(m){S.players[+m.dataset.marches].marches=Math.max(1,Math.min(7,+m.value||1));renderPlans();refreshOpenPlan();}
