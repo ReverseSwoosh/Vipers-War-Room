@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>VIPER — War Room</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%230d1014' stroke='%23a3e635' stroke-width='5'/%3E%3Ctext x='32' y='44' font-family='system-ui,-apple-system,Segoe UI,Roboto,sans-serif' font-size='32' font-weight='900' fill='%23a3e635' text-anchor='middle'%3EV%3C/text%3E%3C/svg%3E" />
 <style>
   :root{
     --bg:#0d1014; --panel:#151b22; --panel2:#1b232c; --line:#27303b;
@@ -406,7 +407,7 @@
 <script type="module" src="viper-auth.js"></script>
 <script>
 const S = {
-  sheetId:null, lastUrl:"", isDemo:false, view:"rally",
+  sheetId:null, lastUrl:"", isDemo:false, view:"rally", dmgColFound:true,
   players:[], statusByName:{},
   settings:{ heavy:2000000, bomb:24, wf:12, marches:5 }, search:"", runner:null, openPlanKey:null,
   wfnf:{ bombLen:30, mode:"shared", bombSet:new Set(), rollSet:new Set(), stages:new Set([60,30,10]) },
@@ -440,13 +441,13 @@ function gateChecking(){
 function gateReady(){ $("gateLead").textContent="This tool is for TOXIC members only. Enter the access token your war lead gave you.";
   $("gateBtn").style.display="block"; $("gateInput").style.display="block"; }
 function initGate(){
-  const saved=localStorage.getItem("viper.token");
+  const saved=sessionStorage.getItem("viper.token");
   if(!saved){ gateReady(); showGate(); return; }
   gateChecking();
   window.viperAuth.checkToken(saved).then(r=>{
     gateReady();
-    if(r.ok){ localStorage.setItem("viper.who", r.name||""); showApp(r.name); }
-    else{ localStorage.removeItem("viper.token"); localStorage.removeItem("viper.who");
+    if(r.ok){ sessionStorage.setItem("viper.who", r.name||""); showApp(r.name); }
+    else{ sessionStorage.removeItem("viper.token"); sessionStorage.removeItem("viper.who");
       showGate(r.revoked?"That token was revoked — ask your war lead for a new one.":"Couldn't verify your access — try again.");
     }
   }).catch(()=>{ gateReady(); showGate("Couldn't reach the access service — check your connection and reload."); });
@@ -459,11 +460,11 @@ $("gateBtn").onclick=async()=>{
   $("gateBtn").disabled=true; $("gateErr").textContent="";
   const r=await window.viperAuth.checkToken(v);
   $("gateBtn").disabled=false;
-  if(r.ok){ localStorage.setItem("viper.token",v); localStorage.setItem("viper.who",r.name||""); showApp(r.name); }
+  if(r.ok){ sessionStorage.setItem("viper.token",v); sessionStorage.setItem("viper.who",r.name||""); showApp(r.name); }
   else{ $("gateErr").textContent = r.error?"Couldn't reach the access service — try again.":"That token isn't valid — check with your war lead."; }
 };
 $("gateInput").addEventListener("keydown",e=>{ if(e.key==="Enter") $("gateBtn").click(); });
-$("lockBtn").onclick=()=>{ localStorage.removeItem("viper.token"); localStorage.removeItem("viper.who"); gateReady(); showGate(); };
+$("lockBtn").onclick=()=>{ sessionStorage.removeItem("viper.token"); sessionStorage.removeItem("viper.who"); gateReady(); showGate(); };
 /* ── end access gate ── */
 
 const norm=v=>String(v==null?"":v).trim().replace(/\s+/g," ");
@@ -519,16 +520,25 @@ async function connect(url){
 function buildPlayers(stats,atk){
   const sh=stats[0]||[],iN=colIndex(sh,"NAME"),iM=colIndex(sh,"MARCH SIZE VS SOP"),iR=colIndex(sh,"RALLYCAP"),iRCA=colIndex(sh,"RCA");
   const ah=atk[0]||[],aN=colIndex(ah,"NAME"),aO=colIndex(ah,"OVERALL");
-  const overall={};
-  for(let i=1;i<atk.length;i++){const nm=norm(atk[i][aN]);if(nm)overall[nm.toUpperCase()]=num(atk[i][aO]);}
+  // Damage Dealt per March: header name isn't fixed, so match any ATTACK
+  // column whose header mentions both "damage" and "march" (e.g. "DAMAGE
+  // DEALT PER MARCH", "DMG PER MARCH", etc). Falls back to OVERALL if the
+  // sheet doesn't have it yet, and flags that fallback for the UI.
+  let aD=ah.findIndex(h=>{const u=norm(h).toUpperCase();return u.includes("DAMAGE")&&u.includes("MARCH");});
+  S.dmgColFound = aD>-1;
+  if(aD<0) aD=aO;
+  const overall={},dmgMarch={};
+  for(let i=1;i<atk.length;i++){const nm=norm(atk[i][aN]);if(!nm)continue;
+    overall[nm.toUpperCase()]=num(atk[i][aO]);
+    dmgMarch[nm.toUpperCase()]=num(atk[i][aD]);}
   const out=[];
   for(let i=1;i<stats.length;i++){
     const r=stats[i],nm=norm(r[iN]);if(!nm)continue;
     if(iRCA>-1&&norm(r[iRCA]).toUpperCase()==="RCA")continue;
-    const cap=num(r[iR]),march=num(r[iM]),ov=overall[nm.toUpperCase()]||0;
-    if(!cap&&!march&&!ov)continue;
+    const cap=num(r[iR]),march=num(r[iM]),ov=overall[nm.toUpperCase()]||0,dpm=dmgMarch[nm.toUpperCase()]||0;
+    if(!cap&&!march&&!ov&&!dpm)continue;
     const prev=S.statusByName[nm.toUpperCase()]||{};
-    out.push({name:nm,rallyCap:cap,march,overall:ov,online:!!prev.online,leaving:!!prev.leaving,
+    out.push({name:nm,rallyCap:cap,march,overall:ov,dmgPerMarch:dpm,online:!!prev.online,leaving:!!prev.leaving,
       marches:prev.marches||S.settings.marches||5,multi:!!prev.multi,multiCount:prev.multiCount||2});
   }
   out.sort((a,b)=>a.name.localeCompare(b.name));S.players=out;
@@ -536,7 +546,9 @@ function buildPlayers(stats,atk){
 
 function loadDemo(){
   const h=["KIEZERHARPSKY","ASURA","INSOMNIAC","GEMINI","ART","SCAR","STORMANDGUNZ","FACEDOWNASHUP","M R BLUE","NIGHTOWL","VANTABLACK","REIGN","KAIJU","ZEPHYR","ONYX","VESPER","HALEFIRE","CINDER","MARROW","TEMPEST","GRIMWALD","SABLE","RONIN","WIDOW","HEX","FALKOR"];
-  S.players=h.map((x,i)=>({name:x,rallyCap:Math.round(2.7e6-i*32000+(Math.random()-.5)*180000),march:Math.round(250000+Math.random()*110000),overall:Math.round(180000-i*4000+(Math.random()-.5)*40000),online:false,leaving:false,marches:5,multi:false,multiCount:2}));
+  const shuffled=[...h].sort(()=>Math.random()-0.5);
+  S.players=h.map((x,i)=>({name:x,rallyCap:Math.round(2.7e6-i*32000+(Math.random()-.5)*180000),march:Math.round(250000+Math.random()*110000),overall:Math.round(180000-i*4000+(Math.random()-.5)*40000),dmgPerMarch:Math.round(95000-shuffled.indexOf(x)*3000+(Math.random()-.5)*15000),online:false,leaving:false,marches:5,multi:false,multiCount:2}));
+  S.dmgColFound=true;
   S.statusByName={};S.isDemo=true;S.sheetId=null;enterApp();$("srcLabel").textContent="demo data";setStatus("","ok");
 }
 
@@ -590,7 +602,7 @@ function renderPlans(){
   const bombMarches=online.reduce((s,p)=>s+Math.min(2,p.marches),0);
   const wf2=computeWfNoFill(online);
   const sums={
-    machine:`${N} setter${N!==1?"s":""} · set order by damage-per-march, then fill down`,
+    machine:`${N} setter${N!==1?"s":""} · set order by rally cap, then fill down`,
     rolling: N>=2?`${N} setters · non-stop 5-min loop, a hit every ~${x}s`:`Needs 2+ setters`,
     waterfall:`${N} setters · ${bombMarches}-march 10-min bomb + timed rollers`,
     wfnf:`${S.wfnf.bombLen}-min bomb · ${S.wfnf.mode==="shared"?"shared":"assigned"} · ${wf2.R} roll events`,
@@ -629,16 +641,16 @@ function refreshOpenPlan(){
   openPlan(S.openPlanKey);
 }
 function buildMachine(online){
-  const order=[...online].sort((a,b)=>b.overall-a.overall);
+  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
   const totalRallies=online.reduce((s,p)=>s+p.marches,0);
   return `<div class="sec"><h4>How it runs</h4><ol>
     <li>Setter 1 fires <b>all</b> their marches as fast as possible, then waits 5–10s.</li>
     <li>Setter 2 does the same, then setter 3, on down the order.</li>
     <li>The instant marches land, <b>everyone</b> — setters too — fills down immediately.</li></ol>
-    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage-per-march first</b>.</p>
+    <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Order runs <b>highest rally cap first</b>.</p>
     <div class="kv"><span><span class="k">Setters </span><span class="v">${order.length}</span></span>
     <span><span class="k">Total rallies (sum of marches) </span><span class="v ${totalRallies>=120?'good':''}">${comma(totalRallies)}</span></span></div></div>
-    <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>Mfmt(p.overall)+" dmg/m")}</div>`;
+    <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>comma(p.rallyCap))}</div>`;
 }
 function buildRolling(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
@@ -665,7 +677,8 @@ function rollGapSecs(bombSecs, bufferSecs, R, rollDur=300){
   return R>=2 ? win/(R-1) : 0;
 }
 function buildWaterfall(online){
-  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
+  const order=[...online].sort((a,b)=>b.dmgPerMarch-a.dmgPerMarch);const N=order.length;
+  const dmgWarn=S.dmgColFound?"":`<div class="sec"><div class="warnbox">No "Damage Dealt per March" column found on your ATTACK tab — falling back to ATTACK OVERALL for sort order until it's added.</div></div>`;
   const bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
   // Expand each setter's REMAINING marches (marches - 2) into individual roll events,
   // sequential per setter (highest rally cap first), so a setter with more spare
@@ -682,11 +695,12 @@ function buildWaterfall(online){
       return `<div class="sr"><span class="si">${idx+1}</span><span class="snm">${esc(e.p.name)}${e.of>1?` <span class="rolenote">(${e.i}/${e.of})</span>`:""}</span><span class="st">set +${clk(setAt)} → hits +${clk(hitAt)}</span></div>`;
     }).join("")+`</div>`
     : `<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
-  return `${warn}<div class="sec"><h4>The maths</h4><div class="kv">
+  return `${dmgWarn}${warn}<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Bomb </span><span class="v">${bombMarches} marches @ 10:00</span></span>
     <span><span class="k">Roll events </span><span class="v">${R}</span></span>
     <span><span class="k">Roller gap </span><span class="v">${x?x.toFixed(1):0}s</span></span></div></div>
     <div class="sec"><h4>How it runs</h4><ol>
+    <li><b>Set order:</b> sorted by <b>damage dealt per march</b>, highest first.</li>
     <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
     <li><b>Roll the rest:</b> each setter's <b>remaining</b> marches roll as 5-min rallies, fired back-to-back in their own slots before moving to the next setter — so someone with more spare marches gets more roll slots.</li>
     <li>Timed so the <b>last roll lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
