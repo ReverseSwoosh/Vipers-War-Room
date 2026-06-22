@@ -689,11 +689,12 @@ function clkH(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),
 function applyPlanOrder(listKey, computedPlayers){
   const ov=S.planOrder[listKey];
   if(!ov) return computedPlayers;
+  // Override exists — honour it exactly. Only filter out people who are no
+  // longer in computedPlayers (went offline). Do NOT auto-add anyone who's
+  // online but not in the override; that would undo removes. New people
+  // appear in the Add chip row instead.
   const pool=new Map(computedPlayers.map(p=>[p.name,p]));
-  const ordered=ov.map(n=>pool.get(n)).filter(Boolean);
-  const inOv=new Set(ov);
-  computedPlayers.forEach(p=>{ if(!inOv.has(p.name)) ordered.push(p); });
-  return ordered;
+  return ov.map(n=>pool.get(n)).filter(Boolean);
 }
 function initPlanOrder(listKey, players){
   // Stamp the current computed order into state the first time any edit is made,
