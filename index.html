@@ -229,6 +229,10 @@
   .ebtn.danger:hover{border-color:var(--machine);color:var(--machine)}
   .ebtn.active{border-color:var(--bomb);color:var(--bomb)}
   .erst{font-size:11.5px;margin:8px 0 0;padding:6px 12px;width:auto}
+  .eadd-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line);background:#0c1116}
+  .eadd-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted2);flex:none}
+  .eadd-chip{background:transparent;border:1px dashed var(--line);color:var(--muted);padding:4px 10px;border-radius:999px;font:inherit;font-size:12px;cursor:pointer;transition:.12s}
+  .eadd-chip:hover{border-color:var(--brand);color:var(--brand)}
   .sr.leaving-row .snm{color:var(--bomb)}
   .sched .sr:last-child{border-bottom:none}
   .sched .si{font-family:var(--mono);font-size:11px;color:var(--muted2);width:24px;text-align:right}
@@ -689,10 +693,13 @@ function initPlanOrder(listKey, players){
   // so subsequent edits have a stable base to work from.
   if(!S.planOrder[listKey]) S.planOrder[listKey]=players.map(p=>p.name);
 }
-// Renders an editable schedule — ↑ ↓ ✕ on each row, ⏳ leaving toggle, reset link.
-// listKey uniquely identifies the list (e.g. "machine", "waterfall", "shock_0").
-function editSchedHTML(listKey, players, valFn){
-  if(!players.length) return `<p class="pempty">No one in this plan yet.</p>`;
+// Renders an editable schedule — ↑ ↓ ✕ on each row, ⏳ leaving toggle, reset link,
+// and a "+ add" chip row for any online player not already in the list.
+// online = full array of online players (for the add row); optional — pass null to skip.
+function editSchedHTML(listKey, players, valFn, online){
+  const inPlan=new Set(players.map(p=>p.name));
+  const available=(online||[]).filter(p=>!inPlan.has(p.name));
+  const emptyMsg=players.length===0?`<p class="pempty">No one in this plan yet. Add someone below.</p>`:"";
   const rows=players.map((p,i)=>{
     const lv=p.leaving;
     return `<div class="sr ${lv?'leaving-row':''}" data-list="${listKey}" data-pname="${esc(p.name)}">
@@ -702,11 +709,12 @@ function editSchedHTML(listKey, players, valFn){
       <span class="ebtns">
         <button class="ebtn" data-eup="${listKey}:${i}" title="Move up">↑</button>
         <button class="ebtn" data-edn="${listKey}:${i}" title="Move down">↓</button>
-        <button class="ebtn ${lv?'active':''}" data-elv="${listKey}:${esc(p.name)}" title="Toggle leaving">⏳</button>
+        <button class="ebtn ${lv?'active':''}" data-elv="${listKey}:${esc(p.name)}" title="Mark leaving / not leaving">⏳</button>
         <button class="ebtn danger" data-erm="${listKey}:${i}" title="Remove from plan">✕</button>
       </span>
     </div>`;}).join('');
-  return `<div class="sched">${rows}</div>
+  const addRow=available.length?`<div class="eadd-row"><span class="eadd-label">Add:</span>${available.map(p=>`<button class="eadd-chip" data-eadd="${listKey}:${esc(p.name)}">${esc(p.name)}</button>`).join('')}</div>`:'';
+  return `<div class="sched">${emptyMsg}${rows}</div>${addRow}
     <button class="ghost erst" data-erst="${listKey}">↺ Reset order</button>`;
 }
 function schedHTML(order,vf){return `<div class="sched">`+order.map((p,i)=>`<div class="sr"><span class="si">${i+1}</span><span class="snm">${esc(p.name)}</span><span class="st">${vf(p,i)}</span></div>`).join("")+`</div>`;}
@@ -744,7 +752,7 @@ function buildMachine(online){
     <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage dealt per march first</b>.</p>
     <div class="kv"><span><span class="k">Setters </span><span class="v">${order.length}</span></span>
     <span><span class="k">Total rallies (sum of marches) </span><span class="v ${totalRallies>=120?'good':''}">${comma(totalRallies)}</span></span></div></div>
-    <div class="sec"><h4>Set order (${order.length}) <span class="rolenote">— drag ↑↓ to reorder, ✕ to remove from this plan</span></h4>${editSchedHTML('machine',order,p=>Mfmt(p.dmgPerMarch)+" dmg/m")}</div>`;
+    <div class="sec"><h4>Set order (${order.length}) <span class="rolenote">— ↑↓ to reorder, ✕ to remove, + to add</span></h4>${editSchedHTML('machine',order,p=>Mfmt(p.dmgPerMarch)+" dmg/m",online)}</div>`;
 }
 function buildRolling(online){
   const computed=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
@@ -762,7 +770,7 @@ function buildRolling(online){
     <li>5-minute rallies only — each setter fires <b>all</b> their marches on their turn.</li>
     <li>Wait <b>${x}s</b> between setters, so a rally lands roughly every ${x}s.</li>
     <li>After the last setter, setter 1's marches are back — they go again. Loop forever.</li></ol></div>
-    <div class="sec"><h4>Order &amp; timing (first cycle) <span class="rolenote">— reorder or remove below, timing recalculates</span></h4>${editSchedHTML('rolling',order,(p,i)=>"sets +"+clk(i*x))}</div>
+    <div class="sec"><h4>Order &amp; timing (first cycle) <span class="rolenote">— reorder, remove, or add</span></h4>${editSchedHTML('rolling',order,(p,i)=>"sets +"+clk(i*x),online)}</div>
     <div class="sec"><h4>Run it</h4><p>Hit start — VIPER calls each setter in turn and counts down the ${x}s gap, looping forever.</p>${runnerShell("rolling")}</div>`;
 }
 // Shared gap math for any "rolling rallies feeding into a longer bomb" plan:
@@ -791,7 +799,7 @@ function buildWaterfall(online){
         const rem=Math.max(0,p.marches-2),evStart=events.findIndex(e=>e.p.name===p.name);
         const setAt=evStart>=0?(R>=2?evStart*x:rollWindow):0;
         return `${rem} march${rem!==1?"es":""} · starts +${clk(setAt)}`;
-      })
+      }, online.filter(p=>p.marches>2))
     :`<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
   return `${warn}<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Bomb </span><span class="v">${bombMarches} marches @ 10:00</span></span>
@@ -801,8 +809,8 @@ function buildWaterfall(online){
     <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
     <li><b>Roll the rest:</b> each setter's <b>remaining</b> marches roll as 5-min rallies, fired back-to-back in their own slots before moving to the next setter — so someone with more spare marches gets more roll slots.</li>
     <li>Timed so the <b>last roll lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
-    <div class="sec"><h4>Bomb setters (everyone, 2 marches each) <span class="rolenote">— reorder or remove</span></h4>${editSchedHTML('waterfall',order,p=>comma(p.rallyCap)+" cap")}</div>
-    <div class="sec"><h4>Roll order <span class="rolenote">— reorder or remove; timing recalculates</span></h4>${rollSched}</div>
+    <div class="sec"><h4>Bomb setters (everyone, 2 marches each) <span class="rolenote">— reorder, remove, or add</span></h4>${editSchedHTML('waterfall',order,p=>comma(p.rallyCap)+" cap",online)}</div>
+    <div class="sec"><h4>Roll order <span class="rolenote">— reorder, remove, or add; timing recalculates</span></h4>${rollSched}</div>
     <div class="sec"><h4>Run it</h4><p>Start the bomb window first (everyone sets their 2-march 10-min rally at their march-time), then VIPER calls each roll event in turn, timed so the last lands 10s before the bomb.</p>${runnerShell("waterfall")}</div>`;
 }
 /* ---- Waterfall — No Fill Down ----
@@ -878,7 +886,8 @@ function buildWfNoFill(online){
     <div class="sec"><h4>Bomb setters (${calc.bombContributors.length})</h4><div class="rolepick">${roleCheckList(online,cfg.bombSet,"bomb",locked,cfg.rollSet)}</div></div>
     <div class="sec"><h4>Roller setters (${calc.R}) <span class="rolenote">picking someone here removes them from Bomb setters, and vice versa</span></h4><div class="rolepick">${roleCheckList(online,cfg.rollSet,"roll",locked,cfg.bombSet)}</div></div>`:"";
   const orderedRollers=applyPlanOrder('wfnf_roll',calc.rollOrder);
-  const cycleSched = orderedRollers.length>=1 ? editSchedHTML('wfnf_roll',orderedRollers,(p,i)=>"first sets +"+clk(i*calc.x)) : "";
+  const rollPool=online.filter(p=>!cfg.bombSet.has(p.name)); // rollers can't be bomb setters
+  const cycleSched = orderedRollers.length>=1 ? editSchedHTML('wfnf_roll',orderedRollers,(p,i)=>"first sets +"+clk(i*calc.x),rollPool) : "";
   const lenLabel = isAssigned ? calc.stageList.map(v=>v+"-min").join(" + ") : cfg.bombLen+":00";
   const lastLine = calc.lastSlot>=0
     ? `Last roll: <b>${esc(calc.lastSetter.name)}</b> sets at +${clk(calc.lastSetAt)}, lands +${clk(calc.lastLandAt)} — exactly ${calc.buffer}s before impact.`
@@ -912,7 +921,7 @@ function buildBomb(online){
     <div class="sec"><h4>How it works</h4>
     <p>Every march must hit the SOP on the <b>same second</b>. You stagger rally <b>lengths</b> so they all land together — a 60-min set at the 60-min mark, a 30-min at the 30-min mark, a 10-min at the 10-min mark — all arriving at impact.</p>
     <p>No need to enter anyone's march time: at each mark there's a <b>set-window</b>, and each player just launches when the countdown shows <b>their own march-time</b> in seconds. Longer march times launch earlier; everything converges.</p></div>
-    <div class="sec"><h4>Setter order (${order.length}) <span class="rolenote">— reorder or remove; they all set together in their own time</span></h4>${editSchedHTML('bomb',order,p=>comma(p.rallyCap)+" cap")}</div>
+    <div class="sec"><h4>Setter order (${order.length}) <span class="rolenote">— reorder, remove, or add</span></h4>${editSchedHTML('bomb',order,p=>comma(p.rallyCap)+" cap",online)}</div>
     <div class="sec"><h4>Run the bomb</h4>
     <p>Pick the rally lengths you're using and your set window, then start. VIPER alerts 60s before each window and counts every one down to impact.</p>
     ${runnerShell("bomb")}</div>`;
@@ -924,7 +933,11 @@ function buildShock(online){
   const waves=computedWaves.map((w,i)=>applyPlanOrder('shock_'+i,w));
   const wm=waves.map(w=>w.reduce((s,p)=>s+p.marches,0));
   const labels=["Primary bomb (lands first)","Wave 1 — lands +30s","Wave 2 — lands +45s"];
-  const wavesHTML=waves.map((w,i)=>w.length?`<div class="sec"><h4>${labels[i]} · ${wm[i]} rallies <span class="rolenote">— reorder or remove</span></h4>${editSchedHTML('shock_'+i,w,p=>comma(p.rallyCap)+" cap")}</div>`:"").join("");
+  const allInWaves=new Set(waves.flat().map(p=>p.name));
+  const wavesHTML=waves.map((w,i)=>{
+    const wavePool=online.filter(p=>!allInWaves.has(p.name)||w.some(wp=>wp.name===p.name));
+    return w.length?`<div class="sec"><h4>${labels[i]} · ${wm[i]} rallies <span class="rolenote">— reorder, remove, or add</span></h4>${editSchedHTML('shock_'+i,w,p=>comma(p.rallyCap)+" cap",wavePool)}</div>`:"";
+  }).join("");
   return `<div class="sec"><h4>The play</h4>
     <p>Set exactly like a bomb, but split into waves with deliberate arrival gaps. The <b>primary</b> lands; reigners think the bomb's hit and start refreshing — dumping troops. Then <b>wave 1</b> (+30s) and <b>wave 2</b> (+15s after that) crash in and clear them.</p>
     <div class="kv"><span><span class="k">Total rallies </span><span class="v">${comma(totalM)}</span></span>
@@ -1356,6 +1369,15 @@ $("mBody").addEventListener("click",e=>{
   if(rstBtn){
     const listKey=rstBtn.dataset.erst;
     delete S.planOrder[listKey];
+    openPlan(S.openPlanKey);return;
+  }
+  const addBtn=e.target.closest("[data-eadd]");
+  if(addBtn){
+    const raw=addBtn.dataset.eadd, colonIdx=raw.indexOf(':'), listKey=raw.slice(0,colonIdx), name=raw.slice(colonIdx+1);
+    if(!S.planOrder[listKey]){
+      S.planOrder[listKey]=[...document.querySelectorAll(`[data-list="${listKey}"][data-pname]`)].map(el=>el.dataset.pname);
+    }
+    if(!S.planOrder[listKey].includes(name)) S.planOrder[listKey].push(name);
     openPlan(S.openPlanKey);return;
   }
 });
