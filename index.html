@@ -223,6 +223,13 @@
   .kv .k{font-size:12px;color:var(--muted2)}.kv .v{font-family:var(--mono);color:var(--text);font-weight:600}
   .sched{border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .sched .sr{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #1a222b;font-size:13px}
+  .ebtns{display:flex;gap:3px;margin-left:auto;flex:none}
+  .ebtn{background:#0c1116;border:1px solid var(--line);color:var(--muted);padding:3px 7px;border-radius:6px;font:inherit;font-size:12px;cursor:pointer;line-height:1;transition:.12s}
+  .ebtn:hover{border-color:var(--muted2);color:var(--text)}
+  .ebtn.danger:hover{border-color:var(--machine);color:var(--machine)}
+  .ebtn.active{border-color:var(--bomb);color:var(--bomb)}
+  .erst{font-size:11.5px;margin:8px 0 0;padding:6px 12px;width:auto}
+  .sr.leaving-row .snm{color:var(--bomb)}
   .sched .sr:last-child{border-bottom:none}
   .sched .si{font-family:var(--mono);font-size:11px;color:var(--muted2);width:24px;text-align:right}
   .sched .snm{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -421,6 +428,7 @@ const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally", dmgColFound:true,
   players:[], statusByName:{},
   settings:{ heavy:2000000, marches:5, bombM:80, wfM:55, wfnfN:11, shockN:16 }, search:"", runner:null, openPlanKey:null,
+  planOrder:{},  // key → ordered array of player names (undefined = use computed default)
   wfnf:{ bombLen:30, mode:"shared", bombSet:new Set(), rollSet:new Set(), stages:new Set([60,30,10]) },
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
     tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
@@ -664,6 +672,43 @@ function renderPlans(){
 /* ── plan details ── */
 function clk(sec){sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),s=sec%60;return m+":"+String(s).padStart(2,"0");}
 function clkH(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return (h?h+":"+String(m).padStart(2,"0"):String(m))+":"+String(s).padStart(2,"0");}
+// Apply any manual reorder override for a plan list, falling back to computed order.
+// If an override exists: use its order, skip removed names, append any newly-online
+// players not yet in the override at the bottom.
+function applyPlanOrder(listKey, computedPlayers){
+  const ov=S.planOrder[listKey];
+  if(!ov) return computedPlayers;
+  const pool=new Map(computedPlayers.map(p=>[p.name,p]));
+  const ordered=ov.map(n=>pool.get(n)).filter(Boolean);
+  const inOv=new Set(ov);
+  computedPlayers.forEach(p=>{ if(!inOv.has(p.name)) ordered.push(p); });
+  return ordered;
+}
+function initPlanOrder(listKey, players){
+  // Stamp the current computed order into state the first time any edit is made,
+  // so subsequent edits have a stable base to work from.
+  if(!S.planOrder[listKey]) S.planOrder[listKey]=players.map(p=>p.name);
+}
+// Renders an editable schedule — ↑ ↓ ✕ on each row, ⏳ leaving toggle, reset link.
+// listKey uniquely identifies the list (e.g. "machine", "waterfall", "shock_0").
+function editSchedHTML(listKey, players, valFn){
+  if(!players.length) return `<p class="pempty">No one in this plan yet.</p>`;
+  const rows=players.map((p,i)=>{
+    const lv=p.leaving;
+    return `<div class="sr ${lv?'leaving-row':''}" data-list="${listKey}" data-pname="${esc(p.name)}">
+      <span class="si">${i+1}</span>
+      <span class="snm">${esc(p.name)}${lv?' <span class="rolenote">⚠ leaving</span>':''}</span>
+      <span class="st">${valFn(p,i)}</span>
+      <span class="ebtns">
+        <button class="ebtn" data-eup="${listKey}:${i}" title="Move up">↑</button>
+        <button class="ebtn" data-edn="${listKey}:${i}" title="Move down">↓</button>
+        <button class="ebtn ${lv?'active':''}" data-elv="${listKey}:${esc(p.name)}" title="Toggle leaving">⏳</button>
+        <button class="ebtn danger" data-erm="${listKey}:${i}" title="Remove from plan">✕</button>
+      </span>
+    </div>`;}).join('');
+  return `<div class="sched">${rows}</div>
+    <button class="ghost erst" data-erst="${listKey}">↺ Reset order</button>`;
+}
 function schedHTML(order,vf){return `<div class="sched">`+order.map((p,i)=>`<div class="sr"><span class="si">${i+1}</span><span class="snm">${esc(p.name)}</span><span class="st">${vf(p,i)}</span></div>`).join("")+`</div>`;}
 function openPlan(key){
   S.openPlanKey=key;
@@ -688,8 +733,9 @@ function refreshOpenPlan(){
   openPlan(S.openPlanKey);
 }
 function buildMachine(online){
-  const order=[...online].sort((a,b)=>b.dmgPerMarch-a.dmgPerMarch);
-  const totalRallies=online.reduce((s,p)=>s+p.marches,0);
+  const computed=[...online].sort((a,b)=>b.dmgPerMarch-a.dmgPerMarch);
+  const order=applyPlanOrder('machine',computed);
+  const totalRallies=order.reduce((s,p)=>s+p.marches,0);
   const dmgWarn=S.dmgColFound?"":`<div class="sec"><div class="warnbox">No "Damage Dealt per March" column found on your ATTACK tab — falling back to ATTACK OVERALL for sort order until it's added.</div></div>`;
   return `${dmgWarn}<div class="sec"><h4>How it runs</h4><ol>
     <li>Setter 1 fires <b>all</b> their marches as fast as possible, then waits 5–10s.</li>
@@ -698,12 +744,14 @@ function buildMachine(online){
     <p>Best with lots of setters and few dedicated fillers; aim for 120+ rallies. Since setters fill down right after they set, order runs <b>highest damage dealt per march first</b>.</p>
     <div class="kv"><span><span class="k">Setters </span><span class="v">${order.length}</span></span>
     <span><span class="k">Total rallies (sum of marches) </span><span class="v ${totalRallies>=120?'good':''}">${comma(totalRallies)}</span></span></div></div>
-    <div class="sec"><h4>Set order (${order.length})</h4>${schedHTML(order,p=>Mfmt(p.dmgPerMarch)+" dmg/m")}</div>`;
+    <div class="sec"><h4>Set order (${order.length}) <span class="rolenote">— drag ↑↓ to reorder, ✕ to remove from this plan</span></h4>${editSchedHTML('machine',order,p=>Mfmt(p.dmgPerMarch)+" dmg/m")}</div>`;
 }
 function buildRolling(online){
-  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
-  if(N<2)return `<div class="sec"><div class="warnbox">Rolling needs at least 2 setters.</div></div>`;
-  const x=Math.round(300/N);const totalM=online.reduce((s,p)=>s+p.marches,0);
+  const computed=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const order=applyPlanOrder('rolling',computed);
+  const N=order.length;
+  if(N<2)return `<div class="sec"><div class="warnbox">Rolling needs at least 2 setters. Add more people or reset the order if you removed too many.</div></div>`;
+  const x=Math.round(300/N);const totalM=order.reduce((s,p)=>s+p.marches,0);
   return `<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Setters </span><span class="v">${N}</span></span>
     <span><span class="k">Rally length </span><span class="v">5:00</span></span>
@@ -714,7 +762,7 @@ function buildRolling(online){
     <li>5-minute rallies only — each setter fires <b>all</b> their marches on their turn.</li>
     <li>Wait <b>${x}s</b> between setters, so a rally lands roughly every ${x}s.</li>
     <li>After the last setter, setter 1's marches are back — they go again. Loop forever.</li></ol></div>
-    <div class="sec"><h4>Order &amp; timing (first cycle)</h4>${schedHTML(order,(p,i)=>"sets +"+clk(i*x))}</div>
+    <div class="sec"><h4>Order &amp; timing (first cycle) <span class="rolenote">— reorder or remove below, timing recalculates</span></h4>${editSchedHTML('rolling',order,(p,i)=>"sets +"+clk(i*x))}</div>
     <div class="sec"><h4>Run it</h4><p>Hit start — VIPER calls each setter in turn and counts down the ${x}s gap, looping forever.</p>${runnerShell("rolling")}</div>`;
 }
 // Shared gap math for any "rolling rallies feeding into a longer bomb" plan:
@@ -725,23 +773,26 @@ function rollGapSecs(bombSecs, bufferSecs, R, rollDur=300){
   return R>=2 ? win/(R-1) : 0;
 }
 function buildWaterfall(online){
-  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);const N=order.length;
+  const computed=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const order=applyPlanOrder('waterfall',computed);const N=order.length;
   const bombMarches=order.reduce((s,p)=>s+Math.min(2,p.marches),0);
-  // Expand each setter's REMAINING marches (marches - 2) into individual roll events,
-  // sequential per setter (highest rally cap first), so a setter with more spare
-  // marches gets more slots in the schedule — this is what makes the plan respond
-  // when march counts change.
+  // Expand each setter's REMAINING marches into roll events — re-done after reorder
+  // so event timing always reflects the current person order.
   const events=[];
   order.forEach(p=>{const rem=Math.max(0,p.marches-2);for(let i=0;i<rem;i++)events.push({p,i:i+1,of:rem});});
   const R=events.length;
   const rollWindow=Math.max(0,600-10-300);
   const x=rollGapSecs(600,10,R);
   const warn=N<15?`<div class="sec"><div class="warnbox">Waterfall is built for 15+ setters — you have ${N}. It'll still run, just a smaller bomb.</div></div>`:"";
-  const rollSched=R>=1?`<div class="sched">`+events.map((e,idx)=>{
-      const setAt=R>=2?idx*x:rollWindow,hitAt=setAt+300;
-      return `<div class="sr"><span class="si">${idx+1}</span><span class="snm">${esc(e.p.name)}${e.of>1?` <span class="rolenote">(${e.i}/${e.of})</span>`:""}</span><span class="st">set +${clk(setAt)} → hits +${clk(hitAt)}</span></div>`;
-    }).join("")+`</div>`
-    : `<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
+  // Roll schedule: editable at person level; events shown as sub-note per row.
+  const rollPeople=order.filter(p=>p.marches>2);
+  const rollSched=rollPeople.length>=1
+    ?editSchedHTML('waterfall_roll',rollPeople,(p,i)=>{
+        const rem=Math.max(0,p.marches-2),evStart=events.findIndex(e=>e.p.name===p.name);
+        const setAt=evStart>=0?(R>=2?evStart*x:rollWindow):0;
+        return `${rem} march${rem!==1?"es":""} · starts +${clk(setAt)}`;
+      })
+    :`<p>Not enough spare marches to roll — need setters with more than 2 marches each.</p>`;
   return `${warn}<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Bomb </span><span class="v">${bombMarches} marches @ 10:00</span></span>
     <span><span class="k">Roll events </span><span class="v">${R}</span></span>
@@ -750,7 +801,8 @@ function buildWaterfall(online){
     <li><b>Build the bomb:</b> every setter throws <b>2 marches</b> into a <b>10-minute</b> rally — the ${bombMarches}-march bomb that lands at 10:00.</li>
     <li><b>Roll the rest:</b> each setter's <b>remaining</b> marches roll as 5-min rallies, fired back-to-back in their own slots before moving to the next setter — so someone with more spare marches gets more roll slots.</li>
     <li>Timed so the <b>last roll lands at 9:50</b> — 10 seconds before the bomb — pinning reigners right up to impact.</li></ol></div>
-    <div class="sec"><h4>Roll schedule (${R} events)</h4>${rollSched}</div>
+    <div class="sec"><h4>Bomb setters (everyone, 2 marches each) <span class="rolenote">— reorder or remove</span></h4>${editSchedHTML('waterfall',order,p=>comma(p.rallyCap)+" cap")}</div>
+    <div class="sec"><h4>Roll order <span class="rolenote">— reorder or remove; timing recalculates</span></h4>${rollSched}</div>
     <div class="sec"><h4>Run it</h4><p>Start the bomb window first (everyone sets their 2-march 10-min rally at their march-time), then VIPER calls each roll event in turn, timed so the last lands 10s before the bomb.</p>${runnerShell("waterfall")}</div>`;
 }
 /* ---- Waterfall — No Fill Down ----
@@ -825,7 +877,8 @@ function buildWfNoFill(online){
   const assignedUI=isAssigned?`
     <div class="sec"><h4>Bomb setters (${calc.bombContributors.length})</h4><div class="rolepick">${roleCheckList(online,cfg.bombSet,"bomb",locked,cfg.rollSet)}</div></div>
     <div class="sec"><h4>Roller setters (${calc.R}) <span class="rolenote">picking someone here removes them from Bomb setters, and vice versa</span></h4><div class="rolepick">${roleCheckList(online,cfg.rollSet,"roll",locked,cfg.bombSet)}</div></div>`:"";
-  const cycleSched = calc.R>=1 ? schedHTML(calc.rollOrder,(p,i)=>"first sets +"+clk(i*calc.x)) : "";
+  const orderedRollers=applyPlanOrder('wfnf_roll',calc.rollOrder);
+  const cycleSched = orderedRollers.length>=1 ? editSchedHTML('wfnf_roll',orderedRollers,(p,i)=>"first sets +"+clk(i*calc.x)) : "";
   const lenLabel = isAssigned ? calc.stageList.map(v=>v+"-min").join(" + ") : cfg.bombLen+":00";
   const lastLine = calc.lastSlot>=0
     ? `Last roll: <b>${esc(calc.lastSetter.name)}</b> sets at +${clk(calc.lastSetAt)}, lands +${clk(calc.lastLandAt)} — exactly ${calc.buffer}s before impact.`
@@ -845,29 +898,33 @@ function buildWfNoFill(online){
     <li>${bombStepLine}</li>
     <li>Each roller fires <b>all</b> their marches together as one 5-min rally on their turn, then waits — exactly like Rolling Rallies. Gap between turns is <b>${calc.x?calc.x.toFixed(1):0}s</b>, timed so by the time it's someone's turn again, their marches are already home.${isAssigned?" This runs continuously from the moment you hit Start, independent of the bomb stages — different people, different clock.":""}</li>
     <li>${lastLine}</li></ol></div>
-    <div class="sec"><h4>Roll order — repeats every 5:00 (${calc.rounds} round${calc.rounds!==1?"s":""}, ${calc.totalEvents} roll${calc.totalEvents!==1?"s":""} total)</h4>${calc.R>=1?cycleSched:'<p>No rollers assigned yet.</p>'}</div>
+    <div class="sec"><h4>Roll order — repeats every 5:00 (${calc.rounds} round${calc.rounds!==1?"s":""}, ${calc.totalEvents} roll${calc.totalEvents!==1?"s":""} total) <span class="rolenote">— reorder or remove</span></h4>${orderedRollers.length>=1?cycleSched:'<p>No rollers assigned yet.</p>'}</div>
     <div class="sec"><h4>Run it</h4><p>${isAssigned?"VIPER counts down every bomb stage and calls each roller's turn side by side, so both crews stay in sync on one screen.":"Start the bomb window first, then VIPER calls each roller's turn on a continuous loop."} Stops automatically once the last roll that still lands ${calc.buffer}s before impact has gone out.</p>${runnerShell("wfnf")}</div>`;
 }
 function buildBomb(online){
-  const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
-  const marches=online.reduce((s,p)=>s+p.marches,0);const multis=online.filter(p=>p.multi).length;
+  const computed=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
+  const order=applyPlanOrder('bomb',computed);
+  const marches=order.reduce((s,p)=>s+p.marches,0);const multis=order.filter(p=>p.multi).length;
   return `<div class="sec"><h4>The maths</h4><div class="kv">
     <span><span class="k">Setters </span><span class="v">${order.length}</span></span>
     <span><span class="k">Total rallies </span><span class="v">${comma(marches)}</span></span>
     <span><span class="k">Multi-setters </span><span class="v">${multis}</span></span></div></div>
     <div class="sec"><h4>How it works</h4>
     <p>Every march must hit the SOP on the <b>same second</b>. You stagger rally <b>lengths</b> so they all land together — a 60-min set at the 60-min mark, a 30-min at the 30-min mark, a 10-min at the 10-min mark — all arriving at impact.</p>
-    <p>No need to enter anyone's march time: at each mark there's a <b>60-second window</b>, and each player just launches when the countdown shows <b>their own march-time</b> in seconds. Longer march times launch earlier; everything converges.</p></div>
+    <p>No need to enter anyone's march time: at each mark there's a <b>set-window</b>, and each player just launches when the countdown shows <b>their own march-time</b> in seconds. Longer march times launch earlier; everything converges.</p></div>
+    <div class="sec"><h4>Setter order (${order.length}) <span class="rolenote">— reorder or remove; they all set together in their own time</span></h4>${editSchedHTML('bomb',order,p=>comma(p.rallyCap)+" cap")}</div>
     <div class="sec"><h4>Run the bomb</h4>
     <p>Pick the rally lengths you're using and your set window, then start. VIPER alerts 60s before each window and counts every one down to impact.</p>
     ${runnerShell("bomb")}</div>`;
 }
 function buildShock(online){
   const totalM=online.reduce((s,p)=>s+p.marches,0);
-  const waves=computeWaves(online);
+  const computedWaves=computeWaves(online);
+  // Apply per-wave overrides
+  const waves=computedWaves.map((w,i)=>applyPlanOrder('shock_'+i,w));
   const wm=waves.map(w=>w.reduce((s,p)=>s+p.marches,0));
   const labels=["Primary bomb (lands first)","Wave 1 — lands +30s","Wave 2 — lands +45s"];
-  const wavesHTML=waves.map((w,i)=>w.length?`<div class="sec"><h4>${labels[i]} · ${wm[i]} rallies</h4>${schedHTML(w,p=>comma(p.rallyCap))}</div>`:"").join("");
+  const wavesHTML=waves.map((w,i)=>w.length?`<div class="sec"><h4>${labels[i]} · ${wm[i]} rallies <span class="rolenote">— reorder or remove</span></h4>${editSchedHTML('shock_'+i,w,p=>comma(p.rallyCap)+" cap")}</div>`:"").join("");
   return `<div class="sec"><h4>The play</h4>
     <p>Set exactly like a bomb, but split into waves with deliberate arrival gaps. The <b>primary</b> lands; reigners think the bomb's hit and start refreshing — dumping troops. Then <b>wave 1</b> (+30s) and <b>wave 2</b> (+15s after that) crash in and clear them.</p>
     <div class="kv"><span><span class="k">Total rallies </span><span class="v">${comma(totalM)}</span></span>
@@ -1269,6 +1326,38 @@ $("modal").addEventListener("click",e=>{if(e.target.id==="modal")closePlan();});
 $("mBody").addEventListener("click",e=>{
   if(e.target.id==="runStart"){const r=$("runner");startRunner(r?r.dataset.type:"bomb");}
   if(e.target.id==="runStop"){stopRunner();if($("runStatus")){$("runStatus").textContent="Stopped.";$("runStatus").classList.remove("alert");$("runBig").textContent="";$("runSub").textContent="";$("runClock").textContent="--:--";$("runWindows").innerHTML="";}}
+  // Plan edit controls — disabled while runner is live to avoid mid-run confusion
+  if(S.runner) return;
+  const upBtn=e.target.closest("[data-eup]");
+  const dnBtn=e.target.closest("[data-edn]");
+  const rmBtn=e.target.closest("[data-erm]");
+  const lvBtn=e.target.closest("[data-elv]");
+  const rstBtn=e.target.closest("[data-erst]");
+  if(upBtn||dnBtn||rmBtn){
+    const raw=(upBtn||dnBtn||rmBtn).dataset.eup||(upBtn||dnBtn||rmBtn).dataset.edn||(upBtn||dnBtn||rmBtn).dataset.erm;
+    const colonIdx=raw.lastIndexOf(':');
+    const listKey=raw.slice(0,colonIdx), idx=+raw.slice(colonIdx+1);
+    // Read current displayed order from DOM if no override yet
+    if(!S.planOrder[listKey]){
+      S.planOrder[listKey]=[...document.querySelectorAll(`[data-list="${listKey}"][data-pname]`)].map(el=>el.dataset.pname);
+    }
+    const arr=S.planOrder[listKey];
+    if(upBtn && idx>0){[arr[idx-1],arr[idx]]=[arr[idx],arr[idx-1]];}
+    else if(dnBtn && idx<arr.length-1){[arr[idx],arr[idx+1]]=[arr[idx+1],arr[idx]];}
+    else if(rmBtn){arr.splice(idx,1);}
+    openPlan(S.openPlanKey);return;
+  }
+  if(lvBtn){
+    const raw=lvBtn.dataset.elv, colonIdx=raw.indexOf(':'), name=raw.slice(colonIdx+1);
+    const p=S.players.find(pl=>pl.name===name);
+    if(p){p.leaving=!p.leaving; renderRoster(); openPlan(S.openPlanKey);}
+    return;
+  }
+  if(rstBtn){
+    const listKey=rstBtn.dataset.erst;
+    delete S.planOrder[listKey];
+    openPlan(S.openPlanKey);return;
+  }
 });
 $("mBody").addEventListener("change",e=>{
   if(S.runner)return; // config is locked while a countdown is actively running
