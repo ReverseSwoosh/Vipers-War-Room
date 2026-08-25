@@ -451,6 +451,10 @@
               <option value="off">Off (silent)</option>
             </select></div>
         </div>
+        <div class="sgrid" style="grid-template-columns:1fr;margin-top:10px">
+          <div><label>Custom message on the FINAL bomb's countdown finishing (optional)</label>
+            <input type="text" id="soloCustomMsg" placeholder="e.g. Nice work Vipers, reset for the next rotation!"></div>
+        </div>
         <div class="runner" id="soloRunner">
           <div class="run-clock" id="soloClock">--:--</div>
           <div class="run-status" id="soloStatus">Ready when you are.</div>
@@ -1260,13 +1264,22 @@ function tickShock(r){
    just without needing a built plan first.
 
    Ticks off the real clock (Date.now()) every 100ms so it can't drift.
-   Voice: the moment each stage's window opens it announces "Timer for N
-   minute bomb, get ready", then counts that window down second by second
-   (or just the last 10, per the voice setting) until it closes — then goes
-   quiet until the next selected stage's window opens and repeats, ending
-   in "Impact" when the bomb itself lands. Any queued utterance is cancelled
-   right before the next one is spoken, so voice can never lag behind or
-   pile up — it's always saying the second actually on screen. */
+   Voice, per selected stage:
+     · a "get ready" callout finishes speaking SOLO_LEAD_SEC seconds before
+       that stage's window opens (the whole schedule for the very first
+       stage is pushed back by SOLO_LEAD_SEC on Start so the first callout
+       gets the same head start) — so the callout is never cut off, and the
+       per-second countdown that follows never skips or misses a number.
+     · a 2-minute and a 1-minute heads-up before the get-ready callout, IF
+       there's actually that much standby time before this stage opens.
+     · when that stage's window finishes, a gear-switch reminder — and if
+       it's the LAST selected stage, your custom message instead (falls
+       back to the same reminder if you leave the box empty).
+     · "Impact" when the bomb itself lands.
+   Any queued utterance is cancelled right before the next one is spoken,
+   so voice can never lag behind or pile up — always locked to the second
+   actually on screen. */
+const SOLO_LEAD_SEC=5; // headroom for the "Timer for N minute bomb, get ready" callout to finish before the window opens
 function soloWarmVoices(){
   if(!("speechSynthesis" in window)||S.solo.warmed)return;
   S.solo.warmed=true;
@@ -1298,6 +1311,19 @@ function resetSoloUI(){
 }
 function getSoloStages(){return [...document.querySelectorAll("#soloStagePick input:checked")].map(i=>+i.dataset.stage).sort((a,b)=>b-a);}
 function getSoloWindowSecs(){const el=$("soloWinSecs");const v=el?+el.value:60;return Math.max(5,Math.min(180,v||60));}
+function soloAnnounceCompletion(w,r){
+  if(r.voice==="off")return;
+  const isLast=w===r.W[r.W.length-1];
+  setTimeout(()=>{
+    if(!r.running)return; // timer was stopped/reset before this fired
+    if(isLast){
+      const custom=($("soloCustomMsg")?.value||"").trim();
+      soloSpeak(custom||"Switch to rally cap gear. Dragons fill the dragon rally.");
+    }else{
+      soloSpeak("Switch to rally cap gear. Dragons fill the dragon rally.");
+    }
+  },1300); // let the final "Go" callout finish before this one starts
+}
 function startSoloTimer(){
   stopSoloTimer();
   soloWarmVoices();
@@ -1305,14 +1331,26 @@ function startSoloTimer(){
   if(!stages.length){resetSoloUI();$("soloStatus").textContent="Pick at least one rally length.";return;}
   const win=getSoloWindowSecs();
   const voice=$("soloVoice").value;
+  const customMsg=($("soloCustomMsg")?.value||"").trim();
   try{
     localStorage.setItem("viper.soloStages",JSON.stringify(stages));
     localStorage.setItem("viper.soloWin",String(win));
     localStorage.setItem("viper.soloVoice",voice);
+    localStorage.setItem("viper.soloCustomMsg",customMsg);
   }catch(e){}
-  const now=Date.now(), maxL=stages[0];
-  const impact=now+(maxL*60+win)*1000;
-  const W=stages.map(L=>{const we=impact-L*60*1000;return {L,ws:we-win*1000,we,announced:false,lastSpokenSec:null};});
+  const clickTime=Date.now();
+  const startAt=clickTime+SOLO_LEAD_SEC*1000; // push the whole schedule back so the FIRST get-ready callout has room to finish too
+  const maxL=stages[0];
+  const impact=startAt+(maxL*60+win)*1000;
+  const W=stages.map(L=>{const we=impact-L*60*1000;return {L,ws:we-win*1000,we,
+    warn2:false,warn1:false,announced:false,completed:false,lastSpokenSec:null};});
+  // Only arm the 2-min/1-min heads-up on a stage if there's genuinely that much
+  // standby time before it opens — otherwise they'd fire nonsensically early.
+  W.forEach((w,i)=>{
+    const gapStart=i===0?clickTime:W[i-1].we;
+    const gap=w.ws-gapStart;
+    w.eligible2=gap>=120000; w.eligible1=gap>=60000;
+  });
   S.solo={id:null,_end:null,warmed:S.solo.warmed,running:true,voice,impact,W,win,_impactSpoken:false};
   S.solo.id=setInterval(tickSoloTimer,100);
   tickSoloTimer();
@@ -1321,6 +1359,11 @@ function tickSoloTimer(){
   const r=S.solo; if(!r.running||!$("soloClock"))return;
   const now=Date.now(),toImp=(r.impact-now)/1000;
   $("soloClock").textContent=toImp>0?clkH(toImp):"IMPACT";
+
+  // Fire the gear-switch / custom-message reminder exactly once per stage, the
+  // instant its window closes — independent of the active/next display logic below.
+  for(const w of r.W){ if(!w.completed&&now>=w.we){ w.completed=true; soloAnnounceCompletion(w,r); } }
+
   let active=null,next=null;
   for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
   if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
@@ -1334,20 +1377,16 @@ function tickSoloTimer(){
     const remain=(active.we-now)/1000;
     $("soloStatus").textContent=`SET your ${active.L}-min rallies`;$("soloStatus").classList.add("alert");
     $("soloBig").textContent=clk(remain);$("soloSub").textContent="Launch when this shows YOUR march-time (sec)";
-    let justOpened=false;
-    if(!active.announced){
-      active.announced=true;justOpened=true;
-      if(r.voice!=="off")soloSpeak(`Timer for ${active.L} minute bomb. Get ready.`);
-    }
     const wholeSec=Math.max(0,Math.ceil(remain-1e-6));
-    if(justOpened){
-      active.lastSpokenSec=wholeSec; // don't double up on the "get ready" callout this tick
-    }else if(r.voice!=="off"&&active.lastSpokenSec!==wholeSec){
+    if(r.voice!=="off"&&active.lastSpokenSec!==wholeSec){
       if(r.voice==="every"||wholeSec<=10)soloSpeak(wholeSec>0?String(wholeSec):"Go");
       active.lastSpokenSec=wholeSec;
     }
   }else if(next){
     const toW=(next.ws-now)/1000;
+    if(next.eligible2&&toW<=120&&!next.warn2){next.warn2=true;if(r.voice!=="off")soloSpeak(`Two minutes to the ${next.L} minute bomb.`);}
+    if(next.eligible1&&toW<=60&&!next.warn1){next.warn1=true;if(r.voice!=="off")soloSpeak(`One minute to the ${next.L} minute bomb.`);}
+    if(toW<=SOLO_LEAD_SEC&&!next.announced){next.announced=true;if(r.voice!=="off")soloSpeak(`Timer for ${next.L} minute bomb. Get ready.`);}
     if(toW<=60){$("soloStatus").textContent=`GET READY — ${next.L}-min bomb set`;$("soloStatus").classList.add("alert");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens at 0:00";}
     else{$("soloStatus").textContent=`Standing by · next set: ${next.L}-min`;$("soloStatus").classList.remove("alert");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens when this hits 1:00";}
   }else{
@@ -1362,11 +1401,13 @@ try{
   const savedStages=JSON.parse(localStorage.getItem("viper.soloStages")||"null");
   const savedWin=localStorage.getItem("viper.soloWin");
   const savedVoice=localStorage.getItem("viper.soloVoice");
+  const savedCustom=localStorage.getItem("viper.soloCustomMsg");
   if(Array.isArray(savedStages)&&savedStages.length){
     document.querySelectorAll("#soloStagePick input").forEach(i=>{i.checked=savedStages.includes(+i.dataset.stage);});
   }
   if(savedWin&&$("soloWinSecs"))$("soloWinSecs").value=Math.max(5,Math.min(180,+savedWin||60));
   if(savedVoice&&$("soloVoice"))$("soloVoice").value=savedVoice;
+  if(savedCustom&&$("soloCustomMsg"))$("soloCustomMsg").value=savedCustom;
 }catch(e){}
 $("soloStart")?.addEventListener("click",startSoloTimer);
 $("soloStop")?.addEventListener("click",()=>{stopSoloTimer();resetSoloUI();});
