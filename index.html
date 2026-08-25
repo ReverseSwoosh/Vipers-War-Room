@@ -422,23 +422,32 @@
     </section>
   </main>
 
-  <!-- STANDALONE BOMB TIMER — usable anytime, no keep selection needed -->
+  <!-- STANDALONE BOMB TIMER — usable anytime, no keep selection needed.
+       Mirrors the Bomb plan's runner exactly (same stage windows, same set-window
+       math, same countdown display) but stands alone so it can be pulled up for
+       any rally without building a plan or checking anyone in first. -->
   <main id="bombTimerView" style="display:none">
-    <section class="card" style="max-width:560px;margin:0 auto">
+    <section class="card" style="max-width:620px;margin:0 auto">
       <div class="card-h"><h3>Standalone Bomb Timer</h3></div>
       <div style="padding:16px">
-        <p style="font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 16px">
-          A quick countdown for any rally, on demand — no need to build a plan or select keeps first.
-          Set how many seconds ahead to count (up to 3 min), hit start, and it counts down exactly like the
-          bomb runner above, with an optional spoken countdown so everyone can set precisely without staring at the screen.
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;margin:0 0 14px">
+          Pick the rally lengths you're using — pick several and it stages them exactly like the bomb
+          planner, starting from the longest so every march lands together. Timer starts counting from
+          the <b>highest selected length</b> plus your set window.
         </p>
-        <div class="sgrid" style="grid-template-columns:1fr 1fr">
-          <div><label>Count down from (sec, max 180)</label>
-            <input type="number" id="soloDur" min="1" max="180" value="60"></div>
+        <div class="stagepick" id="soloStagePick">
+          <label><input type="checkbox" data-stage="60" checked> 60-min</label>
+          <label><input type="checkbox" data-stage="30" checked> 30-min</label>
+          <label><input type="checkbox" data-stage="10" checked> 10-min</label>
+          <label><input type="checkbox" data-stage="5"> 5-min</label>
+        </div>
+        <div class="wsecrow">Set window <input type="number" id="soloWinSecs" min="5" max="180" value="60"> sec
+          <span class="wshint">— extra countdown to align impacts; set ≥ your slowest march time</span></div>
+        <div class="sgrid" style="grid-template-columns:1fr;margin-top:10px">
           <div><label>Voice callouts</label>
             <select id="soloVoice">
-              <option value="every">Speak every second</option>
-              <option value="last10">Speak last 10 seconds</option>
+              <option value="every">Speak every second of each window</option>
+              <option value="last10">Speak last 10 seconds of each window</option>
               <option value="off">Off (silent)</option>
             </select></div>
         </div>
@@ -447,7 +456,8 @@
           <div class="run-status" id="soloStatus">Ready when you are.</div>
           <div class="run-big" id="soloBig"></div>
           <div class="run-sub" id="soloSub"></div>
-          <div class="runbtns"><button class="btn" id="soloStart">Start countdown</button><button class="ghost" id="soloStop">Stop</button></div>
+          <div class="run-windows" id="soloWindows"></div>
+          <div class="runbtns"><button class="btn" id="soloStart">Start bomb timer</button><button class="ghost" id="soloStop">Stop</button></div>
         </div>
       </div>
     </section>
@@ -471,7 +481,7 @@ const S = {
   sheetId:null, lastUrl:"", isDemo:false, view:"rally", dmgColFound:true,
   players:[], statusByName:{},
   settings:{ heavy:2000000, marches:5, bombM:80, wfM:55, wfnfN:11, shockN:16 }, search:"", runner:null, openPlanKey:null,
-  solo:{ id:null, endTs:null, duration:60, voice:"every", lastSpoken:null, running:false, warmed:false },
+  solo:{ id:null, _end:null, running:false, warmed:false, voice:"every", W:[], impact:0, _impactSpoken:false },
   planOrder:{},  // key → ordered array of player names (undefined = use computed default)
   wfnf:{ bombLen:30, mode:"shared", bombSet:new Set(), rollSet:new Set(), stages:new Set([60,30,10]) },
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
@@ -1244,11 +1254,19 @@ function tickShock(r){
 
 /* ── STANDALONE BOMB TIMER ──────────────────────────────────────────────
    Independent of the rally planner/runner above — usable anytime, for any
-   rally, regardless of which keeps are selected. Ticks off the real clock
-   (Date.now()) every 100ms so it can't drift, and speaks each second as it
-   elapses using the Web Speech API. Any pending utterance is cancelled the
-   instant the next one is queued, so speech can never lag behind or pile up
-   behind the real countdown — it's always saying the second that's showing. */
+   rally, regardless of which keeps are selected. Mirrors the Bomb plan's
+   runner math exactly (multi-select 60/30/10/5-min stages + a set window,
+   staged back from one shared impact so everything still lands together),
+   just without needing a built plan first.
+
+   Ticks off the real clock (Date.now()) every 100ms so it can't drift.
+   Voice: the moment each stage's window opens it announces "Timer for N
+   minute bomb, get ready", then counts that window down second by second
+   (or just the last 10, per the voice setting) until it closes — then goes
+   quiet until the next selected stage's window opens and repeats, ending
+   in "Impact" when the bomb itself lands. Any queued utterance is cancelled
+   right before the next one is spoken, so voice can never lag behind or
+   pile up — it's always saying the second actually on screen. */
 function soloWarmVoices(){
   if(!("speechSynthesis" in window)||S.solo.warmed)return;
   S.solo.warmed=true;
@@ -1262,64 +1280,94 @@ function soloSpeak(text){
   try{
     window.speechSynthesis.cancel(); // drop anything still queued — keeps voice locked to the current second
     const u=new SpeechSynthesisUtterance(text);
-    u.rate=1.15; u.pitch=1; u.volume=1;
+    u.rate=1.1; u.pitch=1; u.volume=1;
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
 function stopSoloTimer(){
   if(S.solo.id)clearInterval(S.solo.id);
-  S.solo.id=null;S.solo.running=false;S.solo.lastSpoken=null;
+  if(S.solo._end)clearTimeout(S.solo._end);
+  S.solo.id=null;S.solo._end=null;S.solo.running=false;
   if("speechSynthesis" in window){try{window.speechSynthesis.cancel();}catch(e){}}
 }
 function resetSoloUI(){
   if(!$("soloClock"))return;
   $("soloClock").textContent="--:--";$("soloStatus").textContent="Ready when you are.";
   $("soloStatus").classList.remove("alert");$("soloBig").textContent="";$("soloSub").textContent="";
+  $("soloWindows").innerHTML="";
 }
+function getSoloStages(){return [...document.querySelectorAll("#soloStagePick input:checked")].map(i=>+i.dataset.stage).sort((a,b)=>b-a);}
+function getSoloWindowSecs(){const el=$("soloWinSecs");const v=el?+el.value:60;return Math.max(5,Math.min(180,v||60));}
 function startSoloTimer(){
   stopSoloTimer();
   soloWarmVoices();
-  const durEl=$("soloDur");
-  let dur=Math.round(+durEl.value||60);
-  dur=Math.max(1,Math.min(180,dur));
-  durEl.value=dur;
-  try{localStorage.setItem("viper.soloDur",String(dur));}catch(e){}
-  S.solo.voice=$("soloVoice").value;
-  try{localStorage.setItem("viper.soloVoice",S.solo.voice);}catch(e){}
-  S.solo.duration=dur;
-  S.solo.endTs=Date.now()+dur*1000;
-  S.solo.lastSpoken=null;
-  S.solo.running=true;
+  const stages=getSoloStages();
+  if(!stages.length){resetSoloUI();$("soloStatus").textContent="Pick at least one rally length.";return;}
+  const win=getSoloWindowSecs();
+  const voice=$("soloVoice").value;
+  try{
+    localStorage.setItem("viper.soloStages",JSON.stringify(stages));
+    localStorage.setItem("viper.soloWin",String(win));
+    localStorage.setItem("viper.soloVoice",voice);
+  }catch(e){}
+  const now=Date.now(), maxL=stages[0];
+  const impact=now+(maxL*60+win)*1000;
+  const W=stages.map(L=>{const we=impact-L*60*1000;return {L,ws:we-win*1000,we,announced:false,lastSpokenSec:null};});
+  S.solo={id:null,_end:null,warmed:S.solo.warmed,running:true,voice,impact,W,win,_impactSpoken:false};
   S.solo.id=setInterval(tickSoloTimer,100);
   tickSoloTimer();
 }
 function tickSoloTimer(){
   const r=S.solo; if(!r.running||!$("soloClock"))return;
-  const now=Date.now(), remSec=(r.endTs-now)/1000;
-  if(remSec<=0){
-    $("soloClock").textContent="0:00";
-    $("soloStatus").textContent="GO — launch now";$("soloStatus").classList.add("alert");
-    $("soloBig").textContent="0";$("soloSub").textContent="Impact.";
-    if(r.lastSpoken!==0&&r.voice!=="off"){soloSpeak("Go");r.lastSpoken=0;}
-    clearInterval(r.id);r.id=null;r.running=false;
-    return;
+  const now=Date.now(),toImp=(r.impact-now)/1000;
+  $("soloClock").textContent=toImp>0?clkH(toImp):"IMPACT";
+  let active=null,next=null;
+  for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
+  if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
+
+  if(toImp<=0){
+    $("soloStatus").textContent="IMPACT — all marches landing";$("soloStatus").classList.add("alert");
+    $("soloBig").textContent="";$("soloSub").textContent="";
+    if(!r._impactSpoken&&r.voice!=="off"){soloSpeak("Impact.");r._impactSpoken=true;}
+    if(!r._end)r._end=setTimeout(()=>{stopSoloTimer();resetSoloUI();},6000);
+  }else if(active){
+    const remain=(active.we-now)/1000;
+    $("soloStatus").textContent=`SET your ${active.L}-min rallies`;$("soloStatus").classList.add("alert");
+    $("soloBig").textContent=clk(remain);$("soloSub").textContent="Launch when this shows YOUR march-time (sec)";
+    let justOpened=false;
+    if(!active.announced){
+      active.announced=true;justOpened=true;
+      if(r.voice!=="off")soloSpeak(`Timer for ${active.L} minute bomb. Get ready.`);
+    }
+    const wholeSec=Math.max(0,Math.ceil(remain-1e-6));
+    if(justOpened){
+      active.lastSpokenSec=wholeSec; // don't double up on the "get ready" callout this tick
+    }else if(r.voice!=="off"&&active.lastSpokenSec!==wholeSec){
+      if(r.voice==="every"||wholeSec<=10)soloSpeak(wholeSec>0?String(wholeSec):"Go");
+      active.lastSpokenSec=wholeSec;
+    }
+  }else if(next){
+    const toW=(next.ws-now)/1000;
+    if(toW<=60){$("soloStatus").textContent=`GET READY — ${next.L}-min bomb set`;$("soloStatus").classList.add("alert");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens at 0:00";}
+    else{$("soloStatus").textContent=`Standing by · next set: ${next.L}-min`;$("soloStatus").classList.remove("alert");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens when this hits 1:00";}
+  }else{
+    $("soloStatus").textContent="Rallies away — waiting on impact";$("soloStatus").classList.remove("alert");
+    $("soloBig").textContent="";$("soloSub").textContent="";
   }
-  const wholeSec=Math.max(1,Math.ceil(remSec-1e-6));
-  $("soloClock").textContent=clk(remSec);
-  $("soloStatus").textContent="Counting down…";$("soloStatus").classList.add("alert");
-  $("soloBig").textContent=clk(remSec);
-  $("soloSub").textContent="launch when this matches your march-time";
-  if(r.voice!=="off"&&r.lastSpoken!==wholeSec){
-    if(r.voice==="every"||wholeSec<=10)soloSpeak(String(wholeSec));
-    r.lastSpoken=wholeSec;
-  }
+  $("soloWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
+    const t=act?clk((w.we-now)/1000):(now<w.ws?clk((w.ws-now)/1000)+" to open":"set");
+    return `<div class="run-win ${act?'active':''} ${done?'done':''}"><span>${w.L}-min rally</span><span>${done?'✓ set':t}</span></div>`;}).join("");
 }
 try{
-  const savedDur=localStorage.getItem("viper.soloDur"); if(savedDur)S.solo.duration=Math.max(1,Math.min(180,+savedDur||60));
-  const savedVoice=localStorage.getItem("viper.soloVoice"); if(savedVoice)S.solo.voice=savedVoice;
+  const savedStages=JSON.parse(localStorage.getItem("viper.soloStages")||"null");
+  const savedWin=localStorage.getItem("viper.soloWin");
+  const savedVoice=localStorage.getItem("viper.soloVoice");
+  if(Array.isArray(savedStages)&&savedStages.length){
+    document.querySelectorAll("#soloStagePick input").forEach(i=>{i.checked=savedStages.includes(+i.dataset.stage);});
+  }
+  if(savedWin&&$("soloWinSecs"))$("soloWinSecs").value=Math.max(5,Math.min(180,+savedWin||60));
+  if(savedVoice&&$("soloVoice"))$("soloVoice").value=savedVoice;
 }catch(e){}
-if($("soloDur"))$("soloDur").value=S.solo.duration;
-if($("soloVoice"))$("soloVoice").value=S.solo.voice;
 $("soloStart")?.addEventListener("click",startSoloTimer);
 $("soloStop")?.addEventListener("click",()=>{stopSoloTimer();resetSoloUI();});
 
