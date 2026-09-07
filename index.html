@@ -194,11 +194,11 @@
   .rcard{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;cursor:pointer;transition:.15s;color:var(--text);font:inherit;position:relative;overflow:hidden}
   .rcard:hover{border-color:var(--muted2);transform:translateY(-1px)}
   .rcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
-  .rcard.machine::before{background:var(--machine)}.rcard.rolling::before{background:#7aa2ff}.rcard.waterfall::before{background:var(--waterfall)}.rcard.bomb::before{background:var(--bomb)}.rcard.shock::before{background:#c77dff}.rcard.wfnf::before{background:var(--wfnf)}
+  .rcard.machine::before{background:var(--machine)}.rcard.rolling::before{background:#7aa2ff}.rcard.waterfall::before{background:var(--waterfall)}.rcard.bomb::before{background:var(--bomb)}.rcard.shock::before{background:#c77dff}.rcard.wfnf::before{background:var(--wfnf)}.rcard.pureshock::before{background:#ffa63d}.rcard.invshock::before{background:#4fd1c5}
   .rcard.rec{border-color:var(--brand)}
   .rc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px}
   .rc-name{font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}
-  .rcard.machine .rc-name{color:var(--machine)}.rcard.rolling .rc-name{color:#7aa2ff}.rcard.waterfall .rc-name{color:var(--waterfall)}.rcard.bomb .rc-name{color:var(--bomb)}.rcard.shock .rc-name{color:#c77dff}.rcard.wfnf .rc-name{color:var(--wfnf)}
+  .rcard.machine .rc-name{color:var(--machine)}.rcard.rolling .rc-name{color:#7aa2ff}.rcard.waterfall .rc-name{color:var(--waterfall)}.rcard.bomb .rc-name{color:var(--bomb)}.rcard.shock .rc-name{color:#c77dff}.rcard.wfnf .rc-name{color:var(--wfnf)}.rcard.pureshock .rc-name{color:#ffa63d}.rcard.invshock .rc-name{color:#4fd1c5}
   .rc-badge{font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--brand);color:#0d1014;padding:3px 7px;border-radius:999px;font-weight:700;white-space:nowrap}
   .rc-badge.alt{background:transparent;border:1px solid var(--muted2);color:var(--muted)}
   .rcard.alt{border-color:var(--muted2)}
@@ -488,6 +488,7 @@ const S = {
   solo:{ id:null, _end:null, running:false, warmed:false, voice:"every", W:[], impact:0, _impactSpoken:false },
   planOrder:{},  // key → ordered array of player names (undefined = use computed default)
   wfnf:{ bombLen:30, mode:"shared", bombSet:new Set(), rollSet:new Set(), stages:new Set([60,30,10]) },
+  dshock:{ setA:new Set(), setB:new Set(), gapSec:120 }, // shared by Pure/Inverted Shockwave — setA="main wave", setB="bait wave"
   stats:{ cache:{}, fail:{}, active:null, q:"", sort:{}, mode:"table", chartCol:{}, topN:15,
     tabList:["ALL STATS","ATTACK","DEFENSE","DRAGON","GENERAL","GOALS","ROLES","RCAs","ROSTER","SUBMISSION TRACKER","Form Responses"] }
 };
@@ -630,7 +631,7 @@ function loadDemo(){
 }
 
 /* ── RALLY ── */
-const PLAN_COLOR={machine:"var(--machine)",rolling:"#7aa2ff",waterfall:"var(--waterfall)",wfnf:"var(--wfnf)",bomb:"var(--bomb)",shock:"#c77dff"};
+const PLAN_COLOR={machine:"var(--machine)",rolling:"#7aa2ff",waterfall:"var(--waterfall)",wfnf:"var(--wfnf)",bomb:"var(--bomb)",shock:"#c77dff",pureshock:"#ffa63d",invshock:"#4fd1c5"};
 // Ranked recommendation, based on total settable marches (M) and headcount (N):
 //  M ≥ 80              → Bomb (flips a SOP outright), plus Shockwave if N ≥ 16 (7+5+4 wave split)
 //  55 ≤ M < 80, N ≥ 11 → Waterfall – No Fill Down (5 rollers + 6 bomb setters, separate crews)
@@ -687,7 +688,7 @@ function renderRoster(){
         </div>
       </div>${ctl}</div>`;}).join(""):`<div class="empty">No keep matches “${esc(S.search)}”.</div>`;
 }
-const PLAN_META={machine:{name:"Machine Gun",cls:"machine"},rolling:{name:"Rolling",cls:"rolling"},waterfall:{name:"Waterfall",cls:"waterfall"},wfnf:{name:"Waterfall — No Fill Down",cls:"wfnf"},bomb:{name:"Bomb",cls:"bomb"},shock:{name:"Shockwave",cls:"shock"}};
+const PLAN_META={machine:{name:"Machine Gun",cls:"machine"},rolling:{name:"Rolling",cls:"rolling"},waterfall:{name:"Waterfall",cls:"waterfall"},wfnf:{name:"Waterfall — No Fill Down",cls:"wfnf"},bomb:{name:"Bomb",cls:"bomb"},shock:{name:"Shockwave",cls:"shock"},pureshock:{name:"Pure Shockwave",cls:"pureshock"},invshock:{name:"Inverted Shockwave",cls:"invshock"}};
 function renderPlans(){
   const {online,heavy,marches}=totals();
   const rec=recommend(online,marches);
@@ -712,6 +713,7 @@ function renderPlans(){
   const x=N>=2?Math.round(300/N):0;
   const bombMarches=online.reduce((s,p)=>s+Math.min(2,p.marches),0);
   const wf2=computeWfNoFill(online);
+  const dsN=online.filter(p=>S.dshock.setA.has(p.name)||S.dshock.setB.has(p.name)).length;
   const sums={
     machine:`${N} setter${N!==1?"s":""} · set order by damage dealt per march, then fill down`,
     rolling: N>=2?`${N} setters · non-stop 5-min loop, a hit every ~${x}s`:`Needs 2+ setters`,
@@ -719,6 +721,8 @@ function renderPlans(){
     wfnf:`${S.wfnf.bombLen}-min bomb · ${S.wfnf.mode==="shared"?"shared":"assigned"} · ${wf2.R} roll events`,
     bomb:`≈ ${comma(marches)} rallies · staged so all hit the same second`,
     shock:`${N} setters · 3 waves to bait the refresh`,
+    pureshock:`${dsN} setters assigned · main wave hits first, bait wave second`,
+    invshock:`${dsN} setters assigned · bait wave hits first, main wave second`,
   };
   $("cards").innerHTML=Object.keys(PLAN_META).map(k=>{const m=PLAN_META[k];
     const isTop=recKey===k, isAlt=altKeys.has(k);
@@ -796,6 +800,8 @@ function openPlan(key){
   else if(key==="waterfall")html=buildWaterfall(online);
   else if(key==="wfnf")html=buildWfNoFill(online);
   else if(key==="bomb")html=buildBomb(online);
+  else if(key==="pureshock")html=buildDoubleShock(online,"pureshock");
+  else if(key==="invshock")html=buildDoubleShock(online,"invshock");
   else html=buildShock(online);
   $("mBody").innerHTML=html;$("modal").classList.add("open");
 }
@@ -1017,13 +1023,59 @@ function buildShock(online){
     <p>Keep the set window short enough that the waves stay distinct (≤ your wave gap).</p>
     ${runnerShell("shock")}</div>`;
 }
+// Pure/Inverted Shockwave — a simpler 2-wave bomb: assign setters into a "main"
+// group and a "bait" group, pick the same rally lengths/set-window a normal bomb
+// uses, and set the gap between the two waves' impacts. Pure lands Main first,
+// then Bait after the gap; Inverted flips that order (Bait first, to draw out
+// reinforcements/burn a shield, then Main crashes in as the real hit).
+function buildDoubleShock(online,type){
+  const isPure=type==="pureshock";
+  const mainComputed=[...online].filter(p=>S.dshock.setA.has(p.name)).sort((a,b)=>b.rallyCap-a.rallyCap);
+  const baitComputed=[...online].filter(p=>S.dshock.setB.has(p.name)).sort((a,b)=>b.rallyCap-a.rallyCap);
+  const mainOrder=applyPlanOrder('dshock_main',mainComputed);
+  const baitOrder=applyPlanOrder('dshock_bait',baitComputed);
+  const mainM=mainOrder.reduce((s,p)=>s+p.marches,0), baitM=baitOrder.reduce((s,p)=>s+p.marches,0);
+  const locked=!!S.runner;
+  const explain=isPure
+    ?`Your strongest hitters (<b>Main wave</b>) set and land <b>first</b>, then the <b>Bait wave</b> follows after your chosen gap — a clean one-two: full damage up front, cleanup crashing in right behind it.`
+    :`Flips the order: the smaller/decoy <b>Bait wave</b> lands <b>first</b> to draw out reinforcements and burn their shield, then your strongest hitters (<b>Main wave</b>) crash in as the real blow once they're exposed.`;
+  const groups=isPure
+    ?[{key:'dshock_main',arr:mainOrder,name:'Main wave',role:'lands FIRST'},{key:'dshock_bait',arr:baitOrder,name:'Bait wave',role:'lands SECOND'}]
+    :[{key:'dshock_bait',arr:baitOrder,name:'Bait wave',role:'lands FIRST'},{key:'dshock_main',arr:mainOrder,name:'Main wave',role:'lands SECOND'}];
+  const sectionsHTML=groups.map((g,i)=>{
+    const otherNames=new Set(groups.filter((_,j)=>j!==i).flatMap(o=>o.arr.map(p=>p.name)));
+    return g.arr.length?`<div class="sec"><h4>Wave ${i+1} — ${g.name} (${g.role}) · ${g.arr.reduce((s,p)=>s+p.marches,0)} rallies <span class="rolenote">— reorder, remove, or add</span></h4>${editSchedHTML(g.key,g.arr,p=>comma(p.rallyCap)+" cap",p=>S.dshock[g.key==='dshock_main'?'setA':'setB'].has(p.name)&&!otherNames.has(p.name))}</div>`:"";
+  }).join("");
+  const warn=(mainOrder.length===0||baitOrder.length===0)
+    ?`<div class="sec"><div class="warnbox">${mainOrder.length===0?"No Main wave setters assigned yet. ":""}${baitOrder.length===0?"No Bait wave setters assigned yet.":""}</div></div>`:"";
+  return `<div class="sec"><h4>The play</h4><p>${explain}</p>
+    <div class="kv"><span><span class="k">Main wave rallies </span><span class="v">${comma(mainM)}</span></span>
+    <span><span class="k">Bait wave rallies </span><span class="v">${comma(baitM)}</span></span>
+    <span><span class="k">Gap between waves </span><span class="v">${S.dshock.gapSec}s</span></span></div></div>
+    <div class="sec"><h4>Assign setters <span class="rolenote">picking someone here removes them from the other wave, and vice versa</span></h4>
+      <div class="selrow">
+        <div><label>Main wave setters (${mainOrder.length})</label><div class="rolepick">${roleCheckList(online,S.dshock.setA,"dsA",locked,S.dshock.setB)}</div></div>
+        <div><label>Bait wave setters (${baitOrder.length})</label><div class="rolepick">${roleCheckList(online,S.dshock.setB,"dsB",locked,S.dshock.setA)}</div></div>
+      </div></div>
+    ${warn}${sectionsHTML}
+    <div class="sec"><h4>How it runs</h4><ol>
+    <li>Build your Main and Bait groups above — order each one like a normal bomb (bigger rally caps first) so that wave's own marches converge together.</li>
+    <li>Pick the rally lengths you're using and your set window below — the same picker drives <b>both</b> waves.</li>
+    <li>Set the gap: how long after Wave 1 impacts before Wave 2 should land.</li>
+    <li>VIPER opens Wave 1's set windows first with the usual 60s/1-min alerts, calls its impact, counts down your gap, then opens Wave 2's windows the same way.</li></ol></div>
+    <div class="sec"><h4>Run the ${isPure?"pure":"inverted"} shockwave</h4>
+    <p>Keep the gap tight enough the seat of power can't fully repair/refresh between hits, but long enough for Wave 2's setters to actually get their windows.</p>
+    ${runnerShell(type)}</div>`;
+}
 function defaultStages(type){return type==="shock"?[10]:[60,30,10];}
-function startLabel(type){return {rolling:"Start rolling",waterfall:"Start waterfall",bomb:"Start bomb",shock:"Start shockwave"}[type]||"Start";}
+function startLabel(type){return {rolling:"Start rolling",waterfall:"Start waterfall",bomb:"Start bomb",shock:"Start shockwave",pureshock:"Start pure shockwave",invshock:"Start inverted shockwave"}[type]||"Start";}
 function runnerShell(type){
-  const stages=(type==="bomb"||type==="shock"), wsec=(type!=="rolling");
+  const stages=(type==="bomb"||type==="shock"||type==="pureshock"||type==="invshock"), wsec=(type!=="rolling");
+  const gap=(type==="pureshock"||type==="invshock");
   return `<div class="runner" id="runner" data-type="${type}">
     ${stages?`<div class="stagepick" id="stagePick">${[60,30,10,5].map(L=>`<label><input type="checkbox" data-stage="${L}" ${defaultStages(type).includes(L)?"checked":""}> ${L}-min</label>`).join("")}</div>`:""}
     ${wsec?`<div class="wsecrow">Set window <input type="number" id="winSecs" min="5" max="180" value="60"> sec <span class="wshint">— extra countdown to align impacts; set ≥ your slowest march time</span></div>`:""}
+    ${gap?`<div class="wsecrow">Gap between waves <input type="number" id="gapSecs" min="10" max="1800" value="${S.dshock.gapSec}"> sec <span class="wshint">— time between Wave 1's impact and Wave 2's</span></div>`:""}
     <div class="run-clock" id="runClock">--:--</div>
     <div class="run-status" id="runStatus">Ready when you are.</div>
     <div class="run-big" id="runBig"></div><div class="run-sub" id="runSub"></div>
@@ -1032,6 +1084,7 @@ function runnerShell(type){
 }
 function getStages(){return [...document.querySelectorAll("#stagePick input:checked")].map(i=>+i.dataset.stage).sort((a,b)=>b-a);}
 function getWindowSecs(){const el=$("winSecs");const v=el?+el.value:60;return Math.max(5,Math.min(180,v||60));}
+function getGapSecs(){const el=$("gapSecs");const v=el?+el.value:S.dshock.gapSec;return Math.max(10,Math.min(1800,v||120));}
 function computeWaves(online){
   const order=[...online].sort((a,b)=>b.rallyCap-a.rallyCap);
   const totalM=order.reduce((s,p)=>s+p.marches,0)||1;
@@ -1047,6 +1100,7 @@ function startRunner(type){
   else if(type==="waterfall")startWaterfall();
   else if(type==="wfnf")startWfNoFill();
   else if(type==="shock")startShock();
+  else if(type==="pureshock"||type==="invshock")startDoubleShock(type);
   else startBomb();
 }
 function startRolling(){
@@ -1107,12 +1161,39 @@ function startShock(){
   W.sort((a,b)=>a.ws-b.ws);
   S.runner={type:"shock",baseImpact,W,win,id:setInterval(tickRunner,200)};tickRunner();
 }
+// Pure/Inverted Shockwave runner — exactly 2 waves, built from the manually-assigned
+// Main/Bait groups, using the same stage-picker + set-window a normal bomb uses.
+// Wave 2's impact is simply Wave 1's impact + the user-chosen gap; each wave's own
+// stage windows are staged backward from its own impact, same as startBomb, so
+// every march inside a wave still converges on that wave's single impact instant.
+function startDoubleShock(type){
+  const stages=getStages();if(!stages.length){$("runStatus").textContent="Pick at least one rally length.";return;}
+  const online=S.players.filter(p=>p.online);
+  const mainGroup=online.filter(p=>S.dshock.setA.has(p.name));
+  const baitGroup=online.filter(p=>S.dshock.setB.has(p.name));
+  if(!mainGroup.length||!baitGroup.length){$("runStatus").textContent="Assign setters to both the Main and Bait waves first.";return;}
+  const win=getWindowSecs();
+  const gapSec=getGapSecs();
+  S.dshock.gapSec=gapSec;
+  const isPure=type==="pureshock";
+  const order=isPure?[mainGroup,baitGroup]:[baitGroup,mainGroup];
+  const labels=isPure?["Main wave","Bait wave"]:["Bait wave","Main wave"];
+  const now=Date.now(),maxL=stages[0];
+  const wave1Impact=now+(maxL*60+win)*1000;
+  const wave2Impact=wave1Impact+gapSec*1000;
+  const impacts=[wave1Impact,wave2Impact];
+  const W=[];
+  order.forEach((grp,wi)=>{stages.forEach(L=>{const we=impacts[wi]-L*60*1000;W.push({L,ws:we-win*1000,we,wave:wi});});});
+  W.sort((a,b)=>a.ws-b.ws);
+  S.runner={type,W,win,gapSec,impacts,labels,finalImpact:wave2Impact,id:setInterval(tickRunner,200)};tickRunner();
+}
 function tickRunner(){
   const r=S.runner;if(!r||!$("runClock"))return;
   if(r.type==="rolling")tickRolling(r);
   else if(r.type==="waterfall")tickWaterfall(r);
   else if(r.type==="wfnf")tickWfNoFill(r);
   else if(r.type==="shock")tickShock(r);
+  else if(r.type==="pureshock"||r.type==="invshock")tickDoubleShock(r);
   else tickBomb(r);
 }
 function setRun(status,big,sub,alert){$("runStatus").textContent=status;$("runStatus").classList.toggle("alert",!!alert);$("runBig").textContent=big||"";$("runSub").textContent=sub||"";}
@@ -1254,6 +1335,36 @@ function tickShock(r){
   $("runWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
     const t=act?clk((w.we-now)/1000):(now<w.ws?clk((w.ws-now)/1000)+" to open":"set");
     return `<div class="run-win ${act?'active':''} ${done?'done':''}"><span>${wl[w.wave]} · ${w.L}-min</span><span>${done?'✓ set':t}</span></div>`;}).join("");
+}
+// Pure/Inverted Shockwave tick — headsup + countdown for Wave 1's stage windows,
+// then a visible countdown of the user-requested gap once Wave 1 impacts, then
+// the same headsup + countdown for Wave 2's stage windows, ending at Wave 2's
+// impact. "active" (an open set window) always takes display priority since
+// that's the actionable state, regardless of where we are relative to either
+// wave's impact instant.
+function tickDoubleShock(r){
+  const now=Date.now(), w1Imp=r.impacts[0], w2Imp=r.impacts[1], toFinal=(w2Imp-now)/1000;
+  $("runClock").textContent=toFinal>0?clkH(toFinal)+" to final impact":"IMPACT";
+  let active=null,next=null;
+  for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
+  if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
+  if(active){
+    setRun(`SET — ${r.labels[active.wave]} · ${active.L}-min`,clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+  }else if(toFinal<=0){
+    setRun("WAVE 2 IMPACT — clear them","","",true);
+    if(!r._end)r._end=setTimeout(stopRunner,6000);
+  }else if(now>=w1Imp){
+    setRun("WAVE 1 IMPACT",clk((w2Imp-now)/1000),"Wave 2 lands in…",true);
+  }else if(next){
+    const toW=(next.ws-now)/1000;
+    if(toW<=60)setRun(`GET READY — ${r.labels[next.wave]} ${next.L}-min`,clk(toW),"window opens at 0:00",true);
+    else setRun(`Standing by · next: ${r.labels[next.wave]} ${next.L}-min`,clk(toW),"window opens when this hits 1:00",false);
+  }else{
+    setRun("Wave away — waiting on next window","","",false);
+  }
+  $("runWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
+    const t=act?clk((w.we-now)/1000):(now<w.ws?clk((w.ws-now)/1000)+" to open":"set");
+    return `<div class="run-win ${act?'active':''} ${done?'done':''}"><span>${r.labels[w.wave]} · ${w.L}-min</span><span>${done?'✓ set':t}</span></div>`;}).join("");
 }
 
 /* ── STANDALONE BOMB TIMER ──────────────────────────────────────────────
@@ -1611,6 +1722,7 @@ $("mBody").addEventListener("change",e=>{
   if(S.runner)return; // config is locked while a countdown is actively running
   if(e.target.id==="wfBombLen"){ S.wfnf.bombLen=+e.target.value; openPlan("wfnf"); return; }
   if(e.target.id==="wfMode"){ S.wfnf.mode=e.target.value; openPlan("wfnf"); return; }
+  if(e.target.id==="gapSecs"){ S.dshock.gapSec=Math.max(10,Math.min(1800,+e.target.value||120)); return; }
   const stage2=e.target.closest("[data-stage2]");
   if(stage2){
     const L=+stage2.dataset.stage2;
@@ -1619,9 +1731,11 @@ $("mBody").addEventListener("change",e=>{
   }
   const role=e.target.closest("[data-role]");
   if(role){
-    const set=role.dataset.role==="bomb"?S.wfnf.bombSet:S.wfnf.rollSet;
+    const roleMap={bomb:S.wfnf.bombSet,roll:S.wfnf.rollSet,dsA:S.dshock.setA,dsB:S.dshock.setB};
+    const set=roleMap[role.dataset.role];
+    if(!set)return;
     if(role.checked) set.add(role.dataset.name); else set.delete(role.dataset.name);
-    openPlan("wfnf");
+    openPlan(S.openPlanKey);
   }
 });
 $("mBody").addEventListener("input",e=>{
