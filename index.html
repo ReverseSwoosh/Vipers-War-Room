@@ -256,7 +256,7 @@
      should be watching), the big number turns gold, so the color alone tells
      them when to actually call the countdown out loud. */
   .run-big{font-family:var(--mono);font-size:60px;font-weight:900;color:var(--muted2);line-height:1.1;min-height:0;transition:color .15s}
-  .run-status.alert + .run-big{color:var(--bomb)}
+  .run-status.counting + .run-big{color:var(--bomb)}
   .run-sub{font-size:12px;color:var(--muted);min-height:16px}
   .run-windows{display:flex;flex-direction:column;gap:6px;margin-top:14px;text-align:left}
   .run-win{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;color:var(--muted)}
@@ -1202,13 +1202,18 @@ function tickRunner(){
   else if(r.type==="pureshock"||r.type==="invshock")tickDoubleShock(r);
   else tickBomb(r);
 }
-function setRun(status,big,sub,alert){$("runStatus").textContent=status;$("runStatus").classList.toggle("alert",!!alert);$("runBig").textContent=big||"";$("runSub").textContent=sub||"";}
+// alert: flashes the status line — anything worth a glance (GET READY, ROLL, SET, IMPACT…).
+// counting: gold-lights the big number — ONLY the literal "launch on this number"
+// countdown (an open SET window, or a turn-based ROLL/SET). A countdown to when a
+// window opens, to the next wave, or to impact is still just waiting — grey, even
+// while the status line is flashing to get people's attention that it's coming up.
+function setRun(status,big,sub,alert,counting){$("runStatus").textContent=status;$("runStatus").classList.toggle("alert",!!alert);$("runStatus").classList.toggle("counting",!!counting);$("runBig").textContent=big||"";$("runSub").textContent=sub||"";}
 function tickRolling(r){
   const now=Date.now(),el=(now-r.startTs)/1000;
   const slot=Math.floor(el/r.x),idx=slot%r.order.length,cycle=Math.floor(slot/r.order.length)+1;
   const cur=r.order[idx],next=r.order[(idx+1)%r.order.length],rem=r.x-(el%r.x);
   $("runClock").textContent="cycle "+cycle;
-  setRun("SET — "+cur.name,clk(rem),"next: "+next.name+" · gap "+r.x+"s",true);
+  setRun("SET — "+cur.name,clk(rem),"next: "+next.name+" · gap "+r.x+"s",true,true);
   $("runWindows").innerHTML=r.order.map((p,i)=>`<div class="run-win ${i===idx?'active':''}"><span>${i+1}. ${esc(p.name)}</span><span>${i===idx?'SET NOW':''}</span></div>`).join("");
 }
 function tickWaterfall(r){
@@ -1216,11 +1221,11 @@ function tickWaterfall(r){
   $("runClock").textContent=toImp>0?clkH(toImp)+" to bomb":"BOMB";
   const rollEnd=r.bombWinEnd+(r.R>0?(r.R-1)*r.x*1000:0)+1000;
   if(now<r.bombWinEnd){
-    setRun(`SET your ${r.bombLenMin}-min BOMB (${r.bombDesc})`,clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+    setRun(`SET your ${r.bombLenMin}-min BOMB (${r.bombDesc})`,clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true,true);
   }else if(r.R>0 && now<rollEnd){
     const t=(now-r.bombWinEnd)/1000,slot=r.x>0?Math.floor(t/r.x):0,idx=Math.min(slot,r.R-1),cur=r.events[idx];
     const lbl=cur.of>1?cur.p.name+" ("+cur.i+"/"+cur.of+")":cur.p.name;
-    setRun("ROLL — "+lbl, r.x>0?clk(r.x-(t%r.x)):"go", "rolls left: "+(r.R-1-idx)+" · bomb in "+clkH(toImp), true);
+    setRun("ROLL — "+lbl, r.x>0?clk(r.x-(t%r.x)):"go", "rolls left: "+(r.R-1-idx)+" · bomb in "+clkH(toImp), true, true);
   }else if(toImp>0){
     setRun("Rollers away — BOMB incoming",clkH(toImp),`everything converging on ${r.bombLenMin}:00`,false);
   }else{
@@ -1242,7 +1247,7 @@ function tickWfNoFillShared(r){
   const now=Date.now(), toImp=(r.bombImpact-now)/1000;
   $("runClock").textContent=toImp>0?clkH(toImp)+" to bomb":"BOMB";
   if(now<r.bombWinEnd){
-    setRun(`SET your ${r.bombLenMin}-min BOMB (${r.bombDesc})`,clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+    setRun(`SET your ${r.bombLenMin}-min BOMB (${r.bombDesc})`,clk((r.bombWinEnd-now)/1000),"Launch when this shows YOUR march-time (sec)",true,true);
     $("runWindows").innerHTML=`<div class="run-win active"><span>${r.bombLenMin}-min bomb · ${r.bombDesc}</span><span>${clk((r.bombWinEnd-now)/1000)}</span></div>`;
     return;
   }
@@ -1257,7 +1262,7 @@ function tickWfNoFillShared(r){
   if(slot<=r.lastSlot){
     idxNow=slot%r.R; const round=Math.floor(slot/r.R)+1, cur=r.rollOrder[idxNow], rem=r.x-(elapsed%r.x);
     const isLast=slot===r.lastSlot;
-    setRun(`ROLL — ${cur.name}${isLast?" (final roll)":""}`,clk(rem),`round ${round} of ${Math.floor(r.lastSlot/r.R)+1} · bomb in ${clkH(toImp)}`,true);
+    setRun(`ROLL — ${cur.name}${isLast?" (final roll)":""}`,clk(rem),`round ${round} of ${Math.floor(r.lastSlot/r.R)+1} · bomb in ${clkH(toImp)}`,true,true);
   }else if(toImp>0){
     setRun("Rollers done — BOMB incoming",clkH(toImp),`everything converging on ${r.bombLenMin}:00`,false);
   }else{
@@ -1291,9 +1296,9 @@ function tickWfNoFillAssigned(r){
   if(toImp<=0){
     setRun("BOMB IMPACT — all marches landing","","",true); if(!r._end) r._end=setTimeout(stopRunner,6000);
   }else if(activeStage){
-    setRun(`SET your ${activeStage.L}-min bomb rally`,clk((activeStage.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+    setRun(`SET your ${activeStage.L}-min bomb rally`,clk((activeStage.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true,true);
   }else if(rollStatus){
-    setRun(rollStatus.label, rollStatus.big, rollStatus.sub+` · bomb in ${clkH(toImp)}`, true);
+    setRun(rollStatus.label, rollStatus.big, rollStatus.sub+` · bomb in ${clkH(toImp)}`, true, true);
   }else if(nextStage){
     const toW=(nextStage.ws-now)/1000;
     if(toW<=60) setRun(`GET READY — ${nextStage.L}-min bomb set`,clk(toW),"window opens at 0:00",true);
@@ -1314,7 +1319,7 @@ function tickBomb(r){
   for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
   if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
   if(toImp<=0){setRun("IMPACT — all marches landing","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);}
-  else if(active)setRun(`SET your ${active.L}-min rallies`,clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+  else if(active)setRun(`SET your ${active.L}-min rallies`,clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true,true);
   else if(next){const toW=(next.ws-now)/1000;
     if(toW<=60)setRun(`GET READY — ${next.L}-min set`,clk(toW),"window opens at 0:00",true);
     else setRun(`Standing by · next set: ${next.L}-min`,clk(toW),"window opens when this hits 1:00",false);}
@@ -1333,7 +1338,7 @@ function tickShock(r){
     if(since<30)setRun("PRIMARY IMPACT",clk(30-since),"Wave 1 lands in…",true);
     else if(since<45)setRun("WAVE 1 IN",clk(45-since),"Wave 2 lands in…",true);
     else{setRun("WAVE 2 IN — clear them","","",true);if(!r._end)r._end=setTimeout(stopRunner,6000);}
-  }else if(active)setRun("SET — "+wl[active.wave]+" · "+active.L+"-min",clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+  }else if(active)setRun("SET — "+wl[active.wave]+" · "+active.L+"-min",clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true,true);
   else if(next){const toW=(next.ws-now)/1000;
     if(toW<=60)setRun("GET READY — "+wl[next.wave]+" "+next.L+"-min",clk(toW),"window opens at 0:00",true);
     else setRun("Standing by · next: "+wl[next.wave]+" "+next.L+"-min",clk(toW),"window opens when this hits 1:00",false);}
@@ -1355,7 +1360,7 @@ function tickDoubleShock(r){
   for(const w of r.W){if(now>=w.ws&&now<w.we){active=w;break;}}
   if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
   if(active){
-    setRun(`SET — ${r.labels[active.wave]} · ${active.L}-min`,clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true);
+    setRun(`SET — ${r.labels[active.wave]} · ${active.L}-min`,clk((active.we-now)/1000),"Launch when this shows YOUR march-time (sec)",true,true);
   }else if(toFinal<=0){
     setRun("WAVE 2 IMPACT — clear them","","",true);
     if(!r._end)r._end=setTimeout(stopRunner,6000);
@@ -1423,7 +1428,7 @@ function stopSoloTimer(){
 function resetSoloUI(){
   if(!$("soloClock"))return;
   $("soloClock").textContent="--:--";$("soloStatus").textContent="Ready when you are.";
-  $("soloStatus").classList.remove("alert");$("soloBig").textContent="";$("soloSub").textContent="";
+  $("soloStatus").classList.remove("alert","counting");$("soloBig").textContent="";$("soloSub").textContent="";
   $("soloWindows").innerHTML="";
 }
 function getSoloStages(){return [...document.querySelectorAll("#soloStagePick input:checked")].map(i=>+i.dataset.stage).sort((a,b)=>b-a);}
@@ -1486,13 +1491,13 @@ function tickSoloTimer(){
   if(!active)for(const w of r.W){if(now<w.ws&&(!next||w.ws<next.ws))next=w;}
 
   if(toImp<=0){
-    $("soloStatus").textContent="IMPACT — all marches landing";$("soloStatus").classList.add("alert");
+    $("soloStatus").textContent="IMPACT — all marches landing";$("soloStatus").classList.add("alert");$("soloStatus").classList.remove("counting");
     $("soloBig").textContent="";$("soloSub").textContent="";
     if(!r._impactSpoken&&r.voice!=="off"){soloSpeak("Impact.");r._impactSpoken=true;}
     if(!r._end)r._end=setTimeout(()=>{stopSoloTimer();resetSoloUI();},6000);
   }else if(active){
     const remain=(active.we-now)/1000;
-    $("soloStatus").textContent=`SET your ${active.L}-min rallies`;$("soloStatus").classList.add("alert");
+    $("soloStatus").textContent=`SET your ${active.L}-min rallies`;$("soloStatus").classList.add("alert","counting");
     $("soloBig").textContent=clk(remain);$("soloSub").textContent="Launch when this shows YOUR march-time (sec)";
     const wholeSec=Math.max(0,Math.ceil(remain-1e-6));
     if(r.voice!=="off"&&active.lastSpokenSec!==wholeSec){
@@ -1504,10 +1509,10 @@ function tickSoloTimer(){
     if(next.eligible2&&toW<=120&&!next.warn2){next.warn2=true;if(r.voice!=="off")soloSpeak(`Two minutes to the ${next.L} minute bomb.`);}
     if(next.eligible1&&toW<=60&&!next.warn1){next.warn1=true;if(r.voice!=="off")soloSpeak(`One minute to the ${next.L} minute bomb.`);}
     if(toW<=SOLO_LEAD_SEC&&!next.announced){next.announced=true;if(r.voice!=="off")soloSpeak(`Timer for ${next.L} minute bomb. Get ready.`);}
-    if(toW<=60){$("soloStatus").textContent=`GET READY — ${next.L}-min bomb set`;$("soloStatus").classList.add("alert");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens at 0:00";}
-    else{$("soloStatus").textContent=`Standing by · next set: ${next.L}-min`;$("soloStatus").classList.remove("alert");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens when this hits 1:00";}
+    if(toW<=60){$("soloStatus").textContent=`GET READY — ${next.L}-min bomb set`;$("soloStatus").classList.add("alert");$("soloStatus").classList.remove("counting");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens at 0:00";}
+    else{$("soloStatus").textContent=`Standing by · next set: ${next.L}-min`;$("soloStatus").classList.remove("alert","counting");$("soloBig").textContent=clk(toW);$("soloSub").textContent="window opens when this hits 1:00";}
   }else{
-    $("soloStatus").textContent="Rallies away — waiting on impact";$("soloStatus").classList.remove("alert");
+    $("soloStatus").textContent="Rallies away — waiting on impact";$("soloStatus").classList.remove("alert","counting");
     $("soloBig").textContent="";$("soloSub").textContent="";
   }
   $("soloWindows").innerHTML=r.W.map(w=>{const done=now>=w.we,act=now>=w.ws&&now<w.we;
